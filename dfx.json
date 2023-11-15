@@ -1,0 +1,30 @@
+{
+  "canisters": {
+    "blend_safe_backend": {
+      "candid": "src/blend_safe_backend/blend_safe_backend.did",
+      "package": "blend_safe_backend",
+      "type": "rust"
+    },
+    "blend_safe_frontend": {
+      "dependencies": [
+        "blend_safe_backend"
+      ],
+      "frontend": {
+        "entrypoint": "src/blend_safe_frontend/src/index.html"
+      },
+      "source": [
+        "src/blend_safe_frontend/assets",
+        "dist/blend_safe_frontend/"
+      ],
+      "type": "assets"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
