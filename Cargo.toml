@@ -2,3 +2,10 @@
 members = [
     "src/blend_safe_backend",
 ]
+resolver = "2"
+
+[workspace.dependencies]
+candid = "0.9.6"
+ic-cdk = "0.10.0"
+serde = "1.0.126"
+serde_derive = "1.0.126"

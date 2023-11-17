@@ -1,3 +1,7 @@
 service : {
-    "greet": (text) -> (text) query;
+    "create_wallet": (text) ->  (variant {
+        Ok;
+        Err: text
+    });
 }
+
