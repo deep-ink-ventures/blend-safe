@@ -28,7 +28,7 @@ pub trait MultiSignatureWallet {
 pub struct Wallet {
     signers: Vec<Principal>,
     threshold: u8,
-    // message => num signed
+    // message => already signed
     message_queue: HashMap<Vec<u8>, Vec<Principal>>,
 }
 
