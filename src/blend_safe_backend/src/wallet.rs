@@ -9,13 +9,14 @@ pub enum WalletError {
     MsgAlreadyQueued,
     MsgNotQueued,
     CantSign,
+    NotEnoughSigners
 }
 
 pub trait MultiSignatureWallet {
     fn add_signer(&mut self, signer: Principal);
     fn remove_signer(&mut self, signer: Principal);
     fn get_signers(&self) -> Vec<Principal>;
-    fn set_default_threshold(&mut self, threshold: u8);
+    fn set_default_threshold(&mut self, threshold: u8) -> Result<(), WalletError>;
     fn get_default_threshold(&self) -> u8;
     fn propose_message(&mut self, caller: Principal, msg: Vec<u8>) -> Result<(), WalletError>;
     fn can_sign(&self, msg: &Vec<u8>) -> bool;
@@ -57,8 +58,12 @@ impl MultiSignatureWallet for Wallet {
         self.signers.clone()
     }
 
-    fn set_default_threshold(&mut self, threshold: u8) {
+    fn set_default_threshold(&mut self, threshold: u8) -> Result<(), WalletError> {
+        if self.signers.len() < threshold as usize {
+            return Err(WalletError::NotEnoughSigners);
+        }
         self.threshold = threshold;
+        Ok(())
     }
 
     fn get_default_threshold(&self) -> u8 {
@@ -153,8 +158,11 @@ mod tests {
         let mut wallet = Wallet::default();
 
         assert_eq!(wallet.get_default_threshold(), 0);
-        wallet.set_default_threshold(3);
-        assert_eq!(wallet.get_default_threshold(), 3);
+
+        wallet.add_signer(Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap());
+        let _ = wallet.set_default_threshold(1);
+        assert_eq!(wallet.get_default_threshold(), 1);
+        assert_eq!(wallet.set_default_threshold(2), Err(WalletError::NotEnoughSigners));
     }
 
     #[test]
@@ -200,10 +208,11 @@ mod tests {
     #[test]
     fn test_can_sign_threshold_not_met() {
         let mut wallet = Wallet::default();
-        wallet.set_default_threshold(1);
 
         let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
         wallet.add_signer(signer.clone());
+        let _ = wallet.set_default_threshold(1);
+
 
         let msg = vec![1, 2, 3];
         let _ = wallet.propose_message(signer.clone(), msg.clone());
@@ -232,8 +241,8 @@ mod tests {
     fn test_approve_valid_message() {
         let mut wallet = Wallet::default();
         let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
-        wallet.set_default_threshold(1);
         wallet.add_signer(signer.clone());
+        let _ = wallet.set_default_threshold(1);
 
         let msg = vec![1, 2, 3];
         wallet.propose_message(signer.clone(), msg.clone()).unwrap();
@@ -263,8 +272,8 @@ mod tests {
         let mut wallet = Wallet::default();
         let signer1 = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
         let signer2 = Principal::from_str("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        let _ = wallet.set_default_threshold(1);
         wallet.add_signer(signer1.clone());
-        wallet.set_default_threshold(1);
 
         let msg = vec![1, 2, 3];
         wallet.propose_message(signer1.clone(), msg.clone()).unwrap();
