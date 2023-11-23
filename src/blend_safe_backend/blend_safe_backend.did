@@ -6,6 +6,7 @@ type Wallet = record {
 
 service : {
     create_wallet: (text, vec principal, nat8) -> (variant { Ok; Err: text });
-    get_wallet: (text) ->  (opt Wallet);
-}
-
+    get_wallet: (text) -> (opt Wallet);
+    add_signer: (text, principal) -> (variant { Ok; Err: text });
+    change_threshold: (text, nat8) -> (variant { Ok; Err: text });
+};
