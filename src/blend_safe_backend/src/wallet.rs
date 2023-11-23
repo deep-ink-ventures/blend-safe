@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use candid::{CandidType, Principal};
 use serde::Deserialize;
 use crate::signer::Signer;
@@ -9,7 +9,7 @@ pub enum WalletError {
     MsgAlreadyQueued,
     MsgNotQueued,
     CantSign,
-    NotEnoughSigners
+    NotEnoughSigners,
 }
 
 pub trait MultiSignatureWallet {
@@ -27,7 +27,7 @@ pub trait MultiSignatureWallet {
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Wallet {
-    signers: Vec<Principal>,
+    signers: HashSet<Principal>,
     threshold: u8,
     // message => already signed
     message_queue: HashMap<Vec<u8>, Vec<Principal>>,
@@ -36,7 +36,7 @@ pub struct Wallet {
 impl Default for Wallet {
     fn default() -> Self {
         Wallet {
-            signers: Vec::new(),
+            signers: HashSet::new(),
             threshold: 0,
             message_queue: HashMap::new(),
         }
@@ -45,17 +45,15 @@ impl Default for Wallet {
 
 impl MultiSignatureWallet for Wallet {
     fn add_signer(&mut self, signer: Principal) {
-        self.signers.push(signer);
+        self.signers.insert(signer);
     }
 
     fn remove_signer(&mut self, signer: Principal) {
-        if let Some(index) = self.signers.iter().position(|&s| s == signer) {
-            self.signers.remove(index);
-        }
+        self.signers.remove(&signer);
     }
 
     fn get_signers(&self) -> Vec<Principal> {
-        self.signers.clone()
+        self.signers.iter().cloned().collect()
     }
 
     fn set_default_threshold(&mut self, threshold: u8) -> Result<(), WalletError> {
@@ -91,7 +89,7 @@ impl MultiSignatureWallet for Wallet {
         self.message_queue[msg].len() >= self.threshold as usize
     }
 
-   fn approve(&mut self, msg: Vec<u8>, signer: Principal) -> Result<u8, WalletError> {
+    fn approve(&mut self, msg: Vec<u8>, signer: Principal) -> Result<u8, WalletError> {
         if !self.message_queue.contains_key(&msg) {
             return Err(WalletError::MsgNotQueued);
         }
@@ -100,8 +98,8 @@ impl MultiSignatureWallet for Wallet {
             return Err(WalletError::InvalidSignature);
         }
 
-       let queue = self.message_queue.get_mut(&msg).unwrap();
-       queue.push(signer);
+        let queue = self.message_queue.get_mut(&msg).unwrap();
+        queue.push(signer);
 
         Ok(queue.len() as u8)
     }

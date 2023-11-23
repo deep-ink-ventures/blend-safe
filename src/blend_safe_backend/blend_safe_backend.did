@@ -1,7 +1,11 @@
+type Wallet = record {
+    signers: vec principal;
+    threshold: nat8;
+    message_queue: vec record { vec nat8; vec principal; }
+};
+
 service : {
-    create_wallet: (text) ->  (variant {
-        Ok;
-        Err: text
-    });
+    create_wallet: (text, vec principal, nat8) -> (variant { Ok; Err: text });
+    get_wallet: (text) ->  (opt Wallet);
 }
 
