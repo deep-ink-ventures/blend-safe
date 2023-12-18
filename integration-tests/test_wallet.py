@@ -1,35 +1,31 @@
-from uuid import uuid4
-
-from ic import Principal
-from ic.canister import encode, Types
-
-from config import create_safe, assert_ok, assert_err, get_default_identities
+import os
+from config import create_safe, get_default_identity, get_some_identities
+from web3 import Web3
+from eth_account.messages import encode_defunct
 
 
-def test_wallet_lifecycle():
-    wallet_id = f'test_{str(uuid4())[0:8]}'
-
+def test_wallet_initiation():
     safe = create_safe()
-    principals = [_.sender().to_str() for _ in get_default_identities()]
 
-    # create wallet
-    assert_ok(safe.create_wallet(wallet_id, principals, 1))
+    wallet = safe.get_wallet()[0]
 
-    # get wallet
-    wallet = safe.get_wallet(wallet_id)[0][0]
-
-    for p in wallet['signers']:
-        assert p.to_str() in principals
-    assert len(wallet['message_queue']) == 0
+    assert len(wallet['signers']) == 1
     assert wallet['threshold'] == 1
+    assert len(wallet['message_queue']) == 0
+    assert wallet['signers'][0].to_str() == get_default_identity().sender().to_str()
 
 
-def test_wallet_not_created_twice():
-    wallet_id = f'test_{str(uuid4())[0:8]}'
-
+def test_signing_lifecycle():
     safe = create_safe()
-    principals = [_.sender().to_str() for _ in get_default_identities()]
+    eth_address = safe.eth_address()[0]['Ok']
+    challenge = os.urandom(32).hex()
+    safe.propose(challenge)
+    safe.approve(challenge)
+    signature = bytes.fromhex(safe.sign(challenge)[0]['Ok'])
 
-    # create wallet
-    assert_ok(safe.create_wallet(wallet_id, principals, 1))
-    assert_err(safe.create_wallet(wallet_id, principals, 1), 'WalletAlreadyExists')
+    message_encoded = encode_defunct(text=challenge)
+    w3 = Web3()
+    for v in [ 0, 1, 27, 28, 35]:
+        full_signature = signature + bytes([v])
+        signer = w3.eth.account.recover_message(encode_defunct(text=challenge), signature=full_signature)
+        print(signer, eth_address)

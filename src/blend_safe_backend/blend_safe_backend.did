@@ -4,9 +4,14 @@ type Wallet = record {
     message_queue: vec record { vec nat8; vec principal; }
 };
 
-service : {
-    create_wallet: (text, vec principal, nat8) -> (variant { Ok; Err: text });
-    get_wallet: (text) -> (opt Wallet);
-    add_signer: (text, principal) -> (variant { Ok; Err: text });
-    change_threshold: (text, nat8) -> (variant { Ok; Err: text });
-};
+service : (text) -> {
+    get_wallet: () ->  (Wallet);
+    can_sign: (text) -> (bool);
+    propose: (text) -> (variant { Ok; Err: text });
+    approve: (text) -> (variant { Ok: nat8; Err: text });
+    sign: (text) -> (variant { Ok: text; Err: text });
+    eth_address : () -> (variant { Ok: text ; Err: text });
+    add_signer: (principal) -> (Wallet);
+    remove_signer: (principal) -> (Wallet);
+}
+

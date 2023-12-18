@@ -1,14 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use candid::{CandidType, Principal};
 use serde::Deserialize;
-use crate::signer::Signer;
 
 #[derive(Debug, PartialEq)]
 pub enum WalletError {
     InvalidSignature,
     MsgAlreadyQueued,
     MsgNotQueued,
-    CantSign,
     NotEnoughSigners,
 }
 
@@ -17,12 +15,11 @@ pub trait MultiSignatureWallet {
     fn remove_signer(&mut self, signer: Principal);
     fn get_signers(&self) -> Vec<Principal>;
     fn set_default_threshold(&mut self, threshold: u8) -> Result<(), WalletError>;
+    fn has_signer(&self, signer: Principal) -> bool;
     fn get_default_threshold(&self) -> u8;
     fn propose_message(&mut self, caller: Principal, msg: Vec<u8>) -> Result<(), WalletError>;
     fn can_sign(&self, msg: &Vec<u8>) -> bool;
     fn approve(&mut self, msg: Vec<u8>, signer: Principal) -> Result<u8, WalletError>;
-
-    fn sign(self, msg: Vec<u8>, signer_implementation: &dyn Signer) -> Result<Vec<u8>, WalletError>;
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
@@ -64,6 +61,10 @@ impl MultiSignatureWallet for Wallet {
         Ok(())
     }
 
+    fn has_signer(&self, signer: Principal) -> bool {
+        self.signers.contains(&signer)
+    }
+
     fn get_default_threshold(&self) -> u8 {
         self.threshold
     }
@@ -103,16 +104,6 @@ impl MultiSignatureWallet for Wallet {
 
         Ok(queue.len() as u8)
     }
-
-    fn sign(self, msg: Vec<u8>, signer_implementation: &dyn Signer) -> Result<Vec<u8>, WalletError> {
-        if !self.can_sign(&msg) {
-            return Err(WalletError::CantSign);
-        }
-        match self.can_sign(&msg) {
-            true => Ok(signer_implementation.sign(msg).map_err(|_| WalletError::CantSign)?),
-            false => Err(WalletError::CantSign),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -120,7 +111,6 @@ mod tests {
     use super::*;
     use candid::Principal;
     use std::str::FromStr;
-    use crate::signer::TestSigner;
 
     #[test]
     fn test_default_wallet() {
@@ -282,31 +272,13 @@ mod tests {
     }
 
     #[test]
-    fn test_sign_can_sign() {
+    fn test_has_signer() {
         let mut wallet = Wallet::default();
-        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
-        wallet.add_signer(signer.clone());
+        let signer1 = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        let signer2 = Principal::from_str("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        wallet.add_signer(signer1.clone());
 
-        let msg = vec![1, 2, 3];
-        wallet.propose_message(signer.clone(), msg.clone()).unwrap();
-
-        let test_signer = TestSigner;
-        let result = wallet.sign(msg.clone(), &test_signer);
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_sign_cant_sign() {
-        let mut wallet = Wallet::default();
-        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
-        wallet.add_signer(signer.clone());
-
-        let msg = vec![1, 2, 3];
-
-        let test_signer = TestSigner;
-        let result = wallet.sign(msg.clone(), &test_signer);
-
-        assert_eq!(result.err(), Some(WalletError::CantSign));
+        assert_eq!(wallet.has_signer(signer1.clone()), true);
+        assert_eq!(wallet.has_signer(signer2.clone()), false);
     }
 }
