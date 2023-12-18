@@ -132,6 +132,7 @@ dependencies = [
  "hex",
  "ic-cdk 0.10.0",
  "ic-web3",
+ "libsecp256k1",
  "serde",
  "sha2 0.10.8",
 ]

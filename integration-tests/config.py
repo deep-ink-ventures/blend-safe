@@ -34,6 +34,7 @@ def get_some_identities():
         Identity.from_seed("turkey enroll pride credit mistake toast speak million report phrase eye margin")
     ]
 
+
 def get_agent():
     return Agent(
         get_default_identity(), Client(url="http://127.0.0.1:4943")

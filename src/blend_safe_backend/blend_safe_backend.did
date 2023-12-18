@@ -10,8 +10,7 @@ service : (text) -> {
     propose: (text) -> (variant { Ok; Err: text });
     approve: (text) -> (variant { Ok: nat8; Err: text });
     sign: (text) -> (variant { Ok: text; Err: text });
+    verify_signature: (text, text) -> (variant { Ok: bool; Err: text });
     eth_address : () -> (variant { Ok: text ; Err: text });
-    add_signer: (principal) -> (Wallet);
-    remove_signer: (principal) -> (Wallet);
 }
 
