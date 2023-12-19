@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use libsecp256k1::{Message, PublicKey, PublicKeyFormat, recover, RecoveryId, Signature};
 use candid::Principal;
 use ic_cdk::api::management_canister::ecdsa::{EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgument, EcdsaPublicKeyResponse, SignWithEcdsaArgument, SignWithEcdsaResponse};
@@ -123,9 +122,7 @@ pub async fn get_public_key(
     wallet_id: String,
     key_id: EcdsaKeyId
 ) -> Result<[u8; 65], String> {
-    let ic_canister_id = "aaaaa-aa";
-    let ic = Principal::from_str(&ic_canister_id).unwrap();
-
+    let ic = Principal::management_canister();
 
     let request = EcdsaPublicKeyArgument {
         canister_id: None,
