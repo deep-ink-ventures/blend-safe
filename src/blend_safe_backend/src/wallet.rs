@@ -4,29 +4,84 @@ use serde::Deserialize;
 
 #[derive(Debug, PartialEq)]
 pub enum WalletError {
+    /// Represents an error when the signature provided is invalid.
     InvalidSignature,
+    /// Error when a message is already queued for signing.
     MsgAlreadyQueued,
+    /// Error when a message is not found in the queue.
     MsgNotQueued,
+    /// Error when there are not enough signers to meet the threshold.
     NotEnoughSigners,
 }
 
+
+/// A trait defining the behaviors of a MultiSignature Wallet.
 pub trait MultiSignatureWallet {
+    /// Add a new signer to the wallet.
+    ///
+    /// * `signer` - The `Principal` of the signer to add.
     fn add_signer(&mut self, signer: Principal);
+
+    /// Remove an existing signer from the wallet.
+    ///
+    /// * `signer` - The `Principal` of the signer to remove.
     fn remove_signer(&mut self, signer: Principal);
+
+    /// Get a list of all current signers of the wallet.
+    ///
+    /// Returns a `Vec<Principal>` containing the principals of all signers.
     fn get_signers(&self) -> Vec<Principal>;
+
+    /// Set the default threshold for signing.
+    ///
+    /// * `threshold` - The threshold as a `u8` value.
+    ///
+    /// Returns `Result<(), WalletError>` indicating success or the type of failure.
     fn set_default_threshold(&mut self, threshold: u8) -> Result<(), WalletError>;
+
+    /// Check if a given `Principal` is a signer in the wallet.
+    ///
+    /// * `signer` - The `Principal` to check.
+    ///
+    /// Returns `bool` indicating whether the signer is present.
     fn has_signer(&self, signer: Principal) -> bool;
+
+    /// Get the current default threshold for signing.
+    ///
+    /// Returns the threshold as a `u8` value.
     fn get_default_threshold(&self) -> u8;
+
+    /// Propose a new message for signing.
+    ///
+    /// * `caller` - The `Principal` proposing the message.
+    /// * `msg` - The message as a `Vec<u8>`.
+    ///
+    /// Returns `Result<(), WalletError>` indicating success or the type of failure.
     fn propose_message(&mut self, caller: Principal, msg: Vec<u8>) -> Result<(), WalletError>;
+
+    /// Check if a message can be signed according to the current rules.
+    ///
+    /// * `msg` - A reference to the message as a `Vec<u8>`.
+    ///
+    /// Returns `bool` indicating whether the message can be signed.
     fn can_sign(&self, msg: &Vec<u8>) -> bool;
+
+    /// Approve a message with a signer's consent.
+    ///
+    /// * `msg` - The message as a `Vec<u8>`.
+    /// * `signer` - The `Principal` of the signer approving the message.
+    ///
+    /// Returns `Result<u8, WalletError>` indicating the number of approvals or the type of failure.
     fn approve(&mut self, msg: Vec<u8>, signer: Principal) -> Result<u8, WalletError>;
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Wallet {
+     /// A set of signers for the wallet, represented by their `Principal`.
     signers: HashSet<Principal>,
+    /// The threshold number of signers required for certain actions.
     threshold: u8,
-    // message => already signed
+    /// A map tracking messages and the list of signers who have already signed them.
     message_queue: HashMap<Vec<u8>, Vec<Principal>>,
 }
 

@@ -1,9 +1,15 @@
+from uuid import uuid4
+
 from ic import Principal
 from ic.canister import Canister
 from ic.client import Client
 from ic.identity import Identity
 from ic.agent import Agent
 from mnemonic import Mnemonic
+
+
+def get_wallet_id():
+    return f'test_{str(uuid4())[0:8]}'
 
 
 def assert_ok(res):
@@ -20,14 +26,7 @@ def get_id(container):
     return "bkyz2-fmaaa-aaaaa-qaaaq-cai"
 
 
-def get_default_identity():
-    return Identity.from_pem("""-----BEGIN EC PRIVATE KEY-----
-MHQCAQEEIE5LpYdzErz2pSLXfKOWRBtfBJPGgRC05pbzm6PirYQroAcGBSuBBAAK
-oUQDQgAE1NNQmEQ8hgfMKI0vFei9UCBUSMKJVWxluDMfX0Btl3zjQmnPWhIijqcE
-jHOQiVWle8bd1Sc9OuQFL7HkhIJbTg==
------END EC PRIVATE KEY-----""")
-
-def get_some_identities():
+def get_default_identities():
     return [
         Identity.from_seed("dumb crucial heart army senior rubber tomorrow uncover brown upgrade road start"),
         Identity.from_seed("sad tiger kite quote erupt auction apple sight barely utility adult reason"),
@@ -35,10 +34,13 @@ def get_some_identities():
     ]
 
 
+def get_default_principals():
+    return [_.sender().to_str() for _ in get_default_identities()]
+
+
 def get_agent():
     return Agent(
-        get_default_identity(), Client(url="http://127.0.0.1:4943")
-
+        get_default_identities()[0], Client(url="http://127.0.0.1:4943")
     )
 
 

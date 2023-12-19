@@ -1,122 +1,110 @@
-extern crate core;
-
 mod wallet;
-mod crypto;
+mod ecdsa;
 
-use crypto::find_recovery_id;
-use ic_web3::ic::{get_eth_addr, KeyInfo, ic_raw_sign, verify, get_public_key};
 use std::cell::RefCell;
-use candid::{CandidType, Deserialize};
+use std::collections::BTreeMap;
+use candid::Principal;
 use ic_cdk::{caller, init, query, update};
+use ic_cdk::api::management_canister::ecdsa::EcdsaKeyId;
 use crate::wallet::{MultiSignatureWallet, Wallet, WalletError};
 
-use ic_cdk::api::management_canister::main::CanisterId;
-use serde::Serialize;
-use libsecp256k1::{PublicKey, PublicKeyFormat, Message, Signature, RecoveryId, recover};
+use crate::ecdsa::{get_eth_address, sign_message, get_ecdsa_key_id_from_env, is_signature_valid};
 
-
-#[derive(CandidType, Serialize, Deserialize, Debug)]
-struct SignWithECDSA {
-    pub message_hash: Vec<u8>,
-    pub derivation_path: Vec<Vec<u8>>,
-    pub key_id: EcdsaKeyId,
-}
-
-#[derive(CandidType, Deserialize, Debug)]
-struct SignWithECDSAReply {
-    pub signature: Vec<u8>,
-}
-
-#[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
-struct EcdsaKeyId {
-    pub curve: EcdsaCurve,
-    pub name: String,
-}
-
-impl Default for EcdsaKeyId {
-    fn default() -> Self {
-        EcdsaKeyId::from_env("local")
-    }
-}
-
-impl EcdsaKeyId {
-    fn from_env(env: &str) -> Self {
-        EcdsaKeyId {
-            curve: EcdsaCurve::Secp256k1,
-            name: match env {
-                "production" => "key_1",
-                "test" => "test_key_1",
-                _ => "dfx_test_key",
-            }.to_string(),
-        }
-    }
-
-    fn to_key_info(&self) -> KeyInfo {
-        KeyInfo {
-            derivation_path: vec![ic_cdk::id().as_slice().to_vec()],
-            key_name: self.name.clone(),
-            ecdsa_sign_cycles: None,
-        }
-
-    }
-}
-
-#[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
-pub enum EcdsaCurve {
-    #[serde(rename = "secp256k1")]
-    Secp256k1,
-}
-
-#[derive(CandidType, Serialize, Debug)]
-struct ECDSAPublicKey {
-    pub canister_id: Option<CanisterId>,
-    pub derivation_path: Vec<Vec<u8>>,
-    pub key_id: EcdsaKeyId,
-}
-
-#[derive(CandidType, Deserialize, Debug)]
-struct ECDSAPublicKeyReply {
-    pub public_key: Vec<u8>,
-    pub chain_code: Vec<u8>,
-}
+type WalletStore = BTreeMap<String, Wallet>;
 
 thread_local! {
-    static WALLET: RefCell<Wallet> = RefCell::default();
+    static WALLETS: RefCell<WalletStore> = RefCell::default();
     static KEY_ID: RefCell<EcdsaKeyId> = RefCell::default();
 }
 
+const WALLET_NOT_FOUND_ERROR: &str = "WalletNotFound";
+const WALLET_ALREADY_EXISTS_ERROR: &str = "WalletAlreadyExists";
 const WALLET_MSG_ALREADY_QUEUED_ERROR: &str = "WalletMsgAlreadyQueued";
 const WALLET_INVALID_SIGNATURE_ERROR: &str = "WalletInvalidSignature";
 const WALLET_CANNOT_SIGN_ERROR: &str = "WalletCannotSign";
+const WALLET_SIGNERS_NOT_MATCH_THRESHOLD: &str = "WalletSignersNotMatchThreshold";
 
+
+/// Initializes the module with environment-specific configurations.
+///
+/// # Arguments
+///
+/// * `env` - A string representing the environment.
+///
+/// # Behavior
+///
+/// Initializes the KEY_ID with an EcdsaKeyId based on the provided environment.
 #[init]
 fn init(env: String) {
     KEY_ID.with(|key_id| {
-        key_id.borrow_mut().clone_from(&EcdsaKeyId::from_env(&env));
-    });
-
-    let mut fresh_wallet = Wallet::default();
-    fresh_wallet.add_signer(caller());
-    fresh_wallet.set_default_threshold(1).expect("Failed to set default threshold");
-
-    WALLET.with(|wallet| {
-        wallet.borrow_mut().clone_from(&fresh_wallet);
+        key_id.borrow_mut().clone_from(&get_ecdsa_key_id_from_env(&env));
     });
 }
 
+/// Creates a new wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - Unique identifier for the wallet as a String.
+/// * `signers` - A list of Principals representing the signers of the wallet.
+/// * `threshold` - The threshold number of signers required for a transaction.
+///
+/// # Returns
+///
+/// * `Result<(), String>` - Result indicating success or an error message.
+#[update]
+fn create_wallet(wallet_id: String, signers: Vec<Principal>, threshold: u8) -> Result<(), String> {
+    if WALLETS.with(|wallets| wallets.borrow().contains_key(&wallet_id)) {
+        return Err(WALLET_ALREADY_EXISTS_ERROR.to_string());
+    }
+
+    let mut wallet = Wallet::default();
+
+    signers.iter().for_each(|signer| {
+        wallet.add_signer(signer.clone());
+    });
+    if wallet.set_default_threshold(threshold).is_err() {
+        return Err(WALLET_SIGNERS_NOT_MATCH_THRESHOLD.to_string())
+    }
+
+    WALLETS.with(|wallets| {
+        wallets.borrow_mut().insert(wallet_id, wallet);
+    });
+    Ok(())
+}
+
+/// Retrieves a wallet by its ID.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The unique identifier for the wallet as a String.
+///
+/// # Returns
+///
+/// * `Option<Wallet>` - The wallet if found, otherwise None.
 #[query]
-fn get_wallet() -> Wallet {
-    WALLET.with(|wallet| {
-        wallet.borrow().clone()
+fn get_wallet(wallet_id: String) -> Option<Wallet> {
+    WALLETS.with(|wallets| {
+        wallets.borrow().get(&wallet_id).cloned()
     })
 }
 
+
+/// Proposes a message to be signed by the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `msg` - The message to be proposed, in hexadecimal format.
+///
+/// # Returns
+///
+/// * `Result<(), String>` - Result indicating success or an error message.
 #[update]
-fn propose(msg: String) -> Result<(), String> {
+fn propose(wallet_id: String, msg: String) -> Result<(), String> {
     let msg = hex::decode(msg).map_err(|_| "InvalidMessage".to_string())?;
-    WALLET.with(|wallet| {
-        wallet
-            .borrow_mut()
+    WALLETS.with(|wallets| {
+        wallets.borrow_mut().get_mut(&wallet_id).ok_or(WALLET_NOT_FOUND_ERROR.to_string()).unwrap()
             .propose_message(caller(), msg).map_err(|error| {
                 match error {
                     WalletError::MsgAlreadyQueued => WALLET_MSG_ALREADY_QUEUED_ERROR.to_string(),
@@ -127,13 +115,22 @@ fn propose(msg: String) -> Result<(), String> {
     })
 }
 
+/// Checks if a message can be signed by the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `msg` - The message to be checked, in hexadecimal format.
+///
+/// # Returns
+///
+/// * `bool` - True if the message can be signed, otherwise false.
 #[query]
-fn can_sign(msg: String) -> bool {
+fn can_sign(wallet_id: String, msg: String) -> bool {
     match hex::decode(&msg) {
         Ok(decoded_msg) => {
-            WALLET.with(|wallet| {
-                wallet
-                    .borrow()
+            WALLETS.with(|wallets| {
+                wallets.borrow().get(&wallet_id).ok_or(WALLET_NOT_FOUND_ERROR.to_string()).unwrap()
                     .can_sign(&decoded_msg)
             })
         }
@@ -141,12 +138,21 @@ fn can_sign(msg: String) -> bool {
     }
 }
 
+/// Approves a message for signing in the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `msg` - The message to be approved, in hexadecimal format.
+///
+/// # Returns
+///
+/// * `Result<u8, String>` - The number of signatures or an error message.
 #[update]
-fn approve(msg: String) -> Result<u8, String> {
+fn approve(wallet_id: String, msg: String) -> Result<u8, String> {
     let msg = hex::decode(msg).map_err(|_| "InvalidMessage".to_string())?;
-    WALLET.with(|wallet| {
-        wallet
-            .borrow_mut()
+    WALLETS.with(|wallets| {
+         wallets.borrow_mut().get_mut(&wallet_id).ok_or(WALLET_NOT_FOUND_ERROR.to_string()).unwrap()
             .approve(msg, caller()).map_err(|error| {
                 match error {
                     WalletError::MsgNotQueued => "WalletMsgNotQueued".to_string(),
@@ -157,13 +163,22 @@ fn approve(msg: String) -> Result<u8, String> {
     })
 }
 
+/// Signs a message using the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `msg` - The message to be signed, in hexadecimal format.
+///
+/// # Returns
+///
+/// * `Result<String, String>` - The signature in hexadecimal format or an error message.
 #[update]
-async fn sign(msg: String) -> Result<String, String> {
+async fn sign(wallet_id: String, msg: String) -> Result<String, String> {
     let msg = hex::decode(msg).map_err(|_| "InvalidMessage".to_string())?;
 
-    let can_sign = WALLET.with(|wallet| {
-        wallet
-            .borrow()
+    let can_sign = WALLETS.with(|wallets| {
+        wallets.borrow().get(&wallet_id).ok_or(WALLET_NOT_FOUND_ERROR.to_string()).unwrap()
             .can_sign(&msg)
     });
 
@@ -175,59 +190,45 @@ async fn sign(msg: String) -> Result<String, String> {
         return Err(WALLET_CANNOT_SIGN_ERROR.to_string());
     }
 
-    let signature = ic_raw_sign(msg.clone(), key_id.to_key_info()).await.map_err(|_| WALLET_CANNOT_SIGN_ERROR);
-
-    // add rec id
-    let mut sig = signature.unwrap();
-    let dev_path =  vec![ic_cdk::id().as_slice().to_vec()];
-    let pub_key = get_public_key(None, dev_path, key_id.name).await?;
-    let uncompressed_pubkey = match PublicKey::parse_slice(&pub_key, Some(PublicKeyFormat::Compressed)) {
-        Ok(key) => { key.serialize() },
-        Err(_) => { return Err("uncompress public key failed: ".to_string()); },
-    };
-    let rec_id = find_recovery_id(&msg, &sig, uncompressed_pubkey).unwrap();
-    sig.push(rec_id);
-
-    Ok(hex::encode(sig))
+    let signature = sign_message(wallet_id, msg, key_id).await?;
+    Ok(hex::encode(signature))
 }
 
+/// Retrieves the Ethereum address associated with the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+///
+/// # Returns
+///
+/// * `Result<String, String>` - The Ethereum address or an error message.
 #[update]
-async fn eth_address() -> Result<String, String> {
+async fn eth_address(wallet_id: String) -> Result<String, String> {
     let key_id = KEY_ID.with(|key_id| {
         key_id.borrow().clone()
     });
-    match get_eth_addr(None, None, key_id.name).await {
-        Ok(addr) => { Ok(format!("0x{}", hex::encode(addr))) },
-        Err(e) => { Err(e) }
-    }
+    get_eth_address(wallet_id, key_id).await
 }
 
-
+/// Verifies a signature for a given message and wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `message` - The message associated with the signature, in hexadecimal format.
+/// * `signature` - The signature to be verified, in hexadecimal format.
+///
+/// # Returns
+///
+/// * `Result<bool, String>` - True if the signature is valid, otherwise an error message.
 #[update]
-async fn verify_signature(message: String, signature: String) -> Result<bool, String> {
-    let key_id = KEY_ID.with(|key_id| {
-        key_id.borrow().clone()
-    });
-
-    let dev_path = vec![ic_cdk::id().as_slice().to_vec()];
-    let pub_key = get_public_key(None, dev_path, key_id.name).await?;
-    let uncompressed_pubkey = match PublicKey::parse_slice(&pub_key, Some(PublicKeyFormat::Compressed)) {
-        Ok(key) => { key.serialize() },
-        Err(_) => { return Err("uncompress public key failed: ".to_string()); },
-    };
+async fn verify_signature(wallet_id: String, message: String, signature: String) -> Result<bool, String> {
 
     let message = hex::decode(message).map_err(|_| "Invalid message".to_string())?;
     let signature = hex::decode(signature).map_err(|_| "Invalid signature".to_string())?;
-
-    let recovery_id = signature[64];
-
-    // Signature without recovery ID (first 64 bytes)
-    let signature_without_recid = signature[..64].to_vec();
-
-    let message_final = Message::parse_slice(message.as_slice()).expect("Invalid message");
-    let recovery_id_final = RecoveryId::parse(recovery_id).expect("Invalid recovery ID");
-    let signature_final = Signature::parse_overflowing_slice(signature_without_recid.as_slice()).expect("Invalid signature");
-    let recovered_address = recover(&message_final, &signature_final, &recovery_id_final).unwrap();
-
-    Ok(recovered_address.serialize() == uncompressed_pubkey)
+    let key_id = KEY_ID.with(|key_id| {
+        key_id.borrow().clone()
+    });
+    Ok(is_signature_valid(message, signature, wallet_id, key_id).await?)
 }

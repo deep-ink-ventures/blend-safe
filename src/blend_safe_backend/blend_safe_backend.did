@@ -5,12 +5,13 @@ type Wallet = record {
 };
 
 service : (text) -> {
-    get_wallet: () ->  (Wallet);
-    can_sign: (text) -> (bool);
-    propose: (text) -> (variant { Ok; Err: text });
-    approve: (text) -> (variant { Ok: nat8; Err: text });
-    sign: (text) -> (variant { Ok: text; Err: text });
-    verify_signature: (text, text) -> (variant { Ok: bool; Err: text });
-    eth_address : () -> (variant { Ok: text ; Err: text });
+    create_wallet: (text, vec principal, nat8) -> (variant { Ok; Err: text });
+    get_wallet: (text) ->  (opt Wallet);
+    can_sign: (text, text) -> (bool);
+    propose: (text, text) -> (variant { Ok; Err: text });
+    approve: (text, text) -> (variant { Ok: nat8; Err: text });
+    sign: (text, text) -> (variant { Ok: text; Err: text });
+    verify_signature: (text, text, text) -> (variant { Ok: bool; Err: text });
+    eth_address : (text) -> (variant { Ok: text ; Err: text });
 }
 

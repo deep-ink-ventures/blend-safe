@@ -11,5 +11,5 @@ serde = "1.0.126"
 serde_derive = "1.0.126"
 sha2 = "0.10.6"
 hex = "0.4.3"
-ic-web3 = { git = "https://github.com/rocklabs-io/ic-web3" }
-libsecp256k1 = { version = "0.7.1", features = ["lazy-static-context"] }
+libsecp256k1 = { version = "0.6.0", package = "libsecp256k1", default-features = false, features = ["lazy-static-context"] }
+tiny-keccak = { version = "2.0.1", features = ["keccak"] }
