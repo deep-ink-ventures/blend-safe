@@ -8,7 +8,7 @@
 
 ## Overview
 
-BlendSafe is a MultiSignature wallet and omnichannel module designed for cross-chain message signing, suitable for multiple blockchain ecosystems.
+BlendSafe is a MultiSignature wallet and omnichain module designed for cross-chain message signing, suitable for multiple blockchain ecosystems.
 
 ## Features
 
