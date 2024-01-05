@@ -3,7 +3,7 @@
 const { transparent } = require('daisyui/src/colors');
 
 module.exports = {
-  content: ['./frontend/**/*.{js,ts,jsx,tsx}'],
+  content: ['./src/blend_safe_frontend/**/*.{js,ts,jsx,tsx}'],
   theme: {
     fontSize: {
       xs: '0.75rem',
