@@ -6,9 +6,10 @@ import {
 } from '../../components';
 import ConnectWallet from '../../components/ConnectWallet';
 import { MainLayout } from '../../layouts/MainLayout';
+import { useConnect } from '@connect2ic/react';
 
 const CreateAccount = () => {
-  const [isConnected, setIsConnected] = useState(false);
+  const { isConnected } = useConnect();
   const [step, setStep] = useState(1);
   return (
     <MainLayout
@@ -19,12 +20,7 @@ const CreateAccount = () => {
           <div className='m-4 text-2xl font-semibold'>Create new account</div>
           <div className='flex flex-wrap items-center justify-center rounded-lg border bg-base-200 py-4 drop-shadow-md'>
             {!isConnected && (
-              <div
-                onClick={() => {
-                  setIsConnected(!isConnected);
-                }}>
-                <ConnectWallet />
-              </div>
+             <ConnectWallet />
             )}
             {isConnected && (
               <>
