@@ -73,6 +73,21 @@ pub trait MultiSignatureWallet {
     ///
     /// Returns `Result<u8, WalletError>` indicating the number of approvals or the type of failure.
     fn approve(&mut self, msg: Vec<u8>, signer: Principal) -> Result<u8, WalletError>;
+
+    /// Returns all messages that can be signed.
+    ///
+    /// Returns a `Vec<Vec<u8>>` containing the messages that can be signed.
+    fn get_messages_to_sign(&self) -> Vec<Vec<u8>>;
+
+    /// Returns all messages that have been proposed.
+    ///
+    /// Returns a `Vec<Vec<u8>>` containing the messages that have been proposed.
+    fn get_proposed_messages(&self) -> Vec<Vec<u8>>;
+
+    /// Returns all messages that have been proposed with their signers.
+    ///
+    /// Returns a `Vec<(Vec<u8>, Vec<Principal>)>` containing the messages that have been proposed with their signers.
+    fn get_messages_with_signers(&self) -> Vec<(Vec<u8>, Vec<Principal>)>;
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
@@ -158,6 +173,28 @@ impl MultiSignatureWallet for Wallet {
         queue.push(signer);
 
         Ok(queue.len() as u8)
+    }
+
+    fn get_messages_to_sign(&self) -> Vec<Vec<u8>> {
+        self.message_queue
+            .iter()
+            .filter(|(msg, _)| self.can_sign(msg))
+            .map(|(msg, _)| msg.clone())
+            .collect()
+    }
+
+    fn get_proposed_messages(&self) -> Vec<Vec<u8>> {
+        self.message_queue
+            .iter()
+            .map(|(msg, _)| msg.clone())
+            .collect()
+    }
+
+    fn get_messages_with_signers(&self) -> Vec<(Vec<u8>, Vec<Principal>)> {
+        self.message_queue
+            .iter()
+            .map(|(msg, signers)| (msg.clone(), signers.clone()))
+            .collect()
     }
 }
 
@@ -335,5 +372,42 @@ mod tests {
 
         assert_eq!(wallet.has_signer(signer1.clone()), true);
         assert_eq!(wallet.has_signer(signer2.clone()), false);
+    }
+
+    #[test]
+    fn test_get_messages() {
+        let mut wallet = Wallet::default();
+        let signer1 = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        let signer2 = Principal::from_str("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        wallet.add_signer(signer1.clone());
+        wallet.add_signer(signer2.clone());
+        let _ = wallet.set_default_threshold(1);
+
+        let msg1 = vec![1, 2, 3];
+        let msg2 = vec![4, 5, 6];
+        let msg3 = vec![7, 8, 9];
+        wallet.propose_message(signer1.clone(), msg1.clone()).unwrap();
+        wallet.propose_message(signer2.clone(), msg2.clone()).unwrap();
+        wallet.propose_message(signer2.clone(), msg3.clone()).unwrap();
+        
+        wallet.approve(msg1.clone(), signer1).unwrap();
+        wallet.approve(msg2.clone(), signer2).unwrap();
+
+        let messages_to_sign = wallet.get_messages_to_sign();
+
+        assert_eq!(messages_to_sign.len(), 2);
+        assert!(messages_to_sign.contains(&msg1));
+        assert!(messages_to_sign.contains(&msg2));
+
+        let proposed_messages = wallet.get_proposed_messages();
+
+        assert_eq!(proposed_messages.len(), 3);
+
+        let all_messages_with_signers = wallet.get_messages_with_signers();
+
+        assert_eq!(all_messages_with_signers.len(), 3);
+        assert!(all_messages_with_signers.contains(&(msg1.clone(), vec![signer1.clone()])));
+        assert!(all_messages_with_signers.contains(&(msg2.clone(), vec![signer2.clone()])));
+        assert!(all_messages_with_signers.contains(&(msg3.clone(), vec![])));
     }
 }

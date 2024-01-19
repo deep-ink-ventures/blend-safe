@@ -232,3 +232,72 @@ async fn verify_signature(wallet_id: String, message: String, signature: String)
     });
     Ok(is_signature_valid(message, signature, wallet_id, key_id).await?)
 }
+
+/// Retrieves all messages that can be signed for a given wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+///
+/// # Returns
+///
+/// * `Vec<Vec<u8>>` - A list of messages that can be signed.
+#[query]
+fn get_messages_to_sign(wallet_id: String) -> Result<Vec<String>, String> {
+    WALLETS.with(|wallets| {
+        wallets.borrow().get(&wallet_id)
+            .ok_or(WALLET_NOT_FOUND_ERROR.to_string())
+            .map(|wallet| {
+                wallet.get_messages_to_sign()
+                      .into_iter()
+                      .map(|msg| hex::encode(msg))
+                      .collect()
+            })
+    })
+}
+
+/// Retrieves all messages that have been proposed for a given wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+///
+/// # Returns
+///
+/// * `Vec<Vec<u8>>` - A list of messages that have been proposed.
+#[query]
+fn get_proposed_messages(wallet_id: String) -> Result<Vec<String>, String> {
+    WALLETS.with(|wallets| {
+        wallets.borrow().get(&wallet_id)
+            .ok_or(WALLET_NOT_FOUND_ERROR.to_string())
+            .map(|wallet| {
+                wallet.get_proposed_messages()
+                      .into_iter()
+                      .map(|msg| hex::encode(msg))
+                      .collect()
+            })
+    })
+}
+
+/// Retrieves all messages that have been proposed along with their signers for a given wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+///
+/// # Returns
+///
+/// * `Vec<(Vec<u8>, Vec<Principal>)>` - A list of tuples containing messages and their signers.
+#[query]
+fn get_messages_with_signers(wallet_id: String) -> Result<Vec<(String, Vec<Principal>)>, String> {
+    WALLETS.with(|wallets| {
+        wallets.borrow().get(&wallet_id)
+            .ok_or(WALLET_NOT_FOUND_ERROR.to_string())
+            .map(|wallet| {
+                wallet.get_messages_with_signers()
+                      .into_iter()
+                      .map(|(msg, signers)| (hex::encode(msg), signers))
+                      .collect()
+            })
+    })
+}

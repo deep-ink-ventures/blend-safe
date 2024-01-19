@@ -9,15 +9,20 @@ import "./index.css";
 import Account from "./pages/account";
 import CreateAccount from "./pages/create-account";
 import "./styles/global.css";
-
+import {idlFactory, canisterId} from "../declarations/blend_safe_backend";
+console.log(process.env.NODE_ENV)
 const client = createClient({
   canisters: {
-    // counter,
+    "blend_safe_backend": {
+      canisterId,
+      //@ts-ignore
+      idlFactory
+    }
   },
   //@ts-ignore
   providers: defaultProviders,
   globalProviderConfig: {
-    dev: import.meta.env.DEV === "true",
+    dev: process.env.NODE_ENV === "development",
   },
 });
 
