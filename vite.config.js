@@ -3,21 +3,23 @@ import reactRefresh from "@vitejs/plugin-react-refresh";
 import path from "path";
 import dfxJson from "./dfx.json";
 import fs from "fs";
-const isDev = process.env["DFX_NETWORK"] !== "ic";
+const networkName = process.env["DFX_NETWORK"] ?? "local";
+const isDev = ["local", "playground"].includes(networkName);
+
 let canisterIds = {};
 try {
     canisterIds = JSON.parse(fs
-        .readFileSync(isDev ? ".dfx/local/canister_ids.json" : "./canister_ids.json")
+        .readFileSync(isDev ? `.dfx/${networkName}/canister_ids.json` : "./canister_ids.json")
         .toString());
 }
 catch (e) {
     console.error("\n⚠️  Before starting the dev server run: dfx deploy\n\n");
 }
+
 // List of all aliases for canisters
 // This will allow us to: import { canisterName } from "canisters/canisterName"
 const aliases = Object.entries(dfxJson.canisters).reduce((acc, [name, _value]) => {
     // Get the network name, or `local` by default.
-    const networkName = process.env["DFX_NETWORK"] ?? "local";
     const outputRoot = path.join(__dirname, ".dfx", networkName, "canisters", name);
     return {
         ...acc,
@@ -28,9 +30,7 @@ const aliases = Object.entries(dfxJson.canisters).reduce((acc, [name, _value]) =
 // This strange way of JSON.stringifying the value is required by vite
 const canisterDefinitions = Object.entries(canisterIds).reduce((acc, [key, val]) => ({
     ...acc,
-    [`process.env.${key.toUpperCase()}_CANISTER_ID`]: isDev
-        ? JSON.stringify(val.local)
-        : JSON.stringify(val.ic),
+    [`process.env.${key.toUpperCase()}_CANISTER_ID`]: JSON.stringify(val[networkName])
 }), {});
 // Gets the port dfx is running on from dfx.json
 const DFX_PORT = dfxJson.networks.local.bind.split(":")[1];

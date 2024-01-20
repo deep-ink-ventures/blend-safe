@@ -1,3 +1,3 @@
 #!/usr/bin/env sh
 
-dfx deploy --network playground --argument '("production")'
+dfx deploy --network ic --argument '("production")' blend_safe_backend
