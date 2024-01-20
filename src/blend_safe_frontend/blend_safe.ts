@@ -2,7 +2,9 @@ import {blend_safe_backend} from "../declarations/blend_safe_backend";
 import {Principal} from "@dfinity/principal";
 import Web3 from "web3";
 import {Transaction} from 'ethereumjs-tx';
-import {PROVIDER} from "./config";
+
+// todo: move to config
+export const PROVIDER =  "https://goerli.infura.io/v3/1aa49601abc34fce881a9934647b806a"
 
 class BlendSafe {
     walletId: string;
