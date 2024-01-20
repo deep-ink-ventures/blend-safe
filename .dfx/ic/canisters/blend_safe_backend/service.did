@@ -1,0 +1,21 @@
+type Message = record { signers : vec principal; message : text };
+type Wallet = record {
+  threshold : nat8;
+  signers : vec principal;
+  message_queue : vec record { vec nat8; vec principal };
+};
+service : {
+  approve : (text, text) -> (variant { Ok : nat8; Err : text });
+  can_sign : (text, text) -> (bool);
+  create_wallet : (text, vec principal, nat8) -> (variant { Ok; Err : text });
+  eth_address : (text) -> (variant { Ok : text; Err : text });
+  get_messages_to_sign : (text) -> (variant { Ok : vec text; Err : text });
+  get_messages_with_signers : (text) -> (
+      variant { Ok : vec record { text; vec principal }; Err : text },
+    );
+  get_proposed_messages : (text) -> (variant { Ok : vec text; Err : text });
+  get_wallet : (text) -> (opt Wallet);
+  propose : (text, text) -> (variant { Ok; Err : text });
+  sign : (text, text) -> (variant { Ok : text; Err : text });
+  verify_signature : (text, text, text) -> (variant { Ok : bool; Err : text });
+}
