@@ -10,14 +10,15 @@ import { MainLayout } from "./layouts";
 import BlendSafe  from "./blend_safe";
 import {Principal} from "@dfinity/principal";
 import { useCanister } from "@connect2ic/react"
-
+import { ToastContainer } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 
 
 async function blendSafeSample(canister: any, principalId: string) {
     const principal = Principal.fromText(principalId);
 
     // random wallet id
-    const walletId = (Math.random() + 1).toString(36).substring(4);
+    const walletId = (Math.random() + 1).toString(36).substring(4); 
     console.log("walletId", walletId)
 
     const safe = new BlendSafe(canister, walletId);
@@ -59,10 +60,12 @@ async function blendSafeSample(canister: any, principalId: string) {
 
 function App() {
   const { isConnected, principal } = useConnect();
-  const [canister] = useCanister("blend_safe_backend")
+  const [canister] = useCanister("blend_safe_backend");
   return (
     <MainLayout title={"Blendsafe"} description={""}>
-        {isConnected ? <a onClick={() => blendSafeSample(canister, principal)}>sample()</a> : null}
+      {isConnected ? (
+        <a className="hidden" onClick={() => blendSafeSample(canister, principal)}>sample()</a>
+      ) : null}
       <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">
         {isConnected ? <Welcome /> : <ConnectWallet />}
       </div>
