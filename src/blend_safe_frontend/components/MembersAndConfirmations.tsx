@@ -52,6 +52,7 @@ export const MembersAndConfirmations = ({
                     {...register(`members.${i}.member`)}
                     placeholder="Wallet Address"
                     className="input input-primary"
+                    disabled={i === 0}
                   />
                   {i !== 0 && (
                     <div className="flex items-center">

@@ -2,12 +2,14 @@ import { useCanister, useConnect } from "@connect2ic/react";
 import cn from "classnames";
 import dayjs from "dayjs";
 import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import BlendSafe from "../blend_safe";
 import { usePromise } from "../hooks/usePromise";
 import Search from "../svg/components/Search";
 import { formatDateTime, truncateMiddle } from "../utils";
 import {
   Accordion,
+  EmptyPlaceholder,
   LoadingPlaceholder,
   Timeline,
   TransactionBadge,
@@ -44,6 +46,8 @@ const generateRandomNumber = (min: number, max: number) => {
 };
 
 const statusBadgeValues = Object.values(StatusBadgeMap);
+
+const CHAIN_ID = 5; // goerli
 
 const mockData = Array(5)
   .fill(null)
@@ -91,6 +95,20 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
     },
   });
 
+  const approveTransaction = usePromise({
+    promiseFunction: async (txnHash: string) => {
+      try {
+        const safe = new BlendSafe(canister as any, principal.substring(4));
+        const response = await safe.approve(txnHash);
+        getMessagesWithSigners.call();
+        toast.success("Successfully approved a message");
+        return response;
+      } catch (ex) {
+        toast.error(ex.toString());
+      }
+    },
+  });
+
   const [pagination, setPagination] = useState({
     currentPage: 1,
     offset: 0,
@@ -100,8 +118,12 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
     setSearchTerm(e.target.value);
   };
 
-  const displayButtons = (txn: any) => {
-    switch (txn.status) {
+  const handleApproveTransaction = async (transaction: string) => {
+    await approveTransaction.call(transaction);
+  };
+
+  const displayButtons = (status: any, txhash: string) => {
+    switch (status) {
       case "EXECUTABLE":
         return (
           <div className="flex w-full justify-center">
@@ -109,8 +131,9 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
               className={cn("btn btn-primary min-w-[60%]", {
                 disabled: generateRandomNumber(0, 1) === 0,
               })}
+              disabled
             >
-              Execute
+              Sign
             </button>
           </div>
         );
@@ -118,8 +141,16 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
       case "PENDING":
         return (
           <div className="flex w-full justify-center gap-2">
-            <button className="btn btn-outline flex-1">Reject</button>
-            <button className="btn btn-primary flex-1">Approve</button>
+            <button className="btn btn-outline hidden flex-1">Reject</button>
+            <button
+              className={cn("btn btn-primary flex-1", {
+                loading: approveTransaction.pending,
+              })}
+              disabled={approveTransaction.pending}
+              onClick={() => handleApproveTransaction(txhash)}
+            >
+              {approveTransaction.pending ? "Approving" : "Approve"}
+            </button>
           </div>
         );
 
@@ -163,9 +194,17 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
         <>
           {getMessagesWithSigners.pending && <LoadingPlaceholder />}
           {!getMessagesWithSigners?.pending &&
+            !getMessagesWithSigners?.value?.length && (
+              <EmptyPlaceholder label="You don't have any transactions yet" />
+            )}
+          {!getMessagesWithSigners?.pending &&
             getMessagesWithSigners?.value?.map((txn, index) => {
               const txnAddress = txn[0];
               const txnApprovals = txn[1];
+              const txnStatus: any =
+                txnApprovals?.length < (getWallet.value?.signers?.length || 0)
+                  ? "PENDING"
+                  : "EXECUTABLE";
               return (
                 <Accordion.Container
                   key={index}
@@ -225,7 +264,7 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                         <p className="font-semibold">Updated at: </p>
                         {formatDateTime(txn.updatedAt)}
                       </div>
-                      {txn.status === "EXECUTED" && (
+                      {txnStatus === "EXECUTED" && (
                         <div>
                           <p className="font-semibold">Executed at: </p>
                           {formatDateTime(txn.executedAt)}
@@ -237,14 +276,14 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                         {[
                           "Created",
                           `Confirmations ${txnApprovals?.length} of ${getWallet.value?.signers?.length}`,
-                          "Executed",
+                          "Signed",
                         ].map((step, stepIndex) => (
                           <Timeline.Item
                             key={`${stepIndex}-${step}`}
                             {...(stepIndex <=
-                              (StatusStepMap[txn.status as any] as any) && {
+                              (StatusStepMap[txnStatus as any] as any) && {
                               status:
-                                stepIndex === StatusStepMap[txn.status as any]
+                                stepIndex === StatusStepMap[txnStatus as any]
                                   ? "active"
                                   : "completed",
                             })}
@@ -253,12 +292,12 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                           </Timeline.Item>
                         ))}
                       </Timeline>
-                      {txn.status !== "EXECUTED" && (
+                      {txnStatus !== "PENDING" && txnStatus !== "EXECUTED" && (
                         <div>Can be executed once threshold is reached</div>
                       )}
 
                       <div className="flex justify-center">
-                        {displayButtons(txn)}
+                        {displayButtons(txnStatus, txnAddress)}
                       </div>
                     </div>
                   </Accordion.Content>

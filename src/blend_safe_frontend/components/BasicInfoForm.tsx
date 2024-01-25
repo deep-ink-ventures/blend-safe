@@ -24,7 +24,7 @@ export const BasicInfoForm = ({ onSubmit }: BasicInfoFormProps) => {
           for a while
         </div>
       </div>
-      <div className="flex w-full items-center gap-x-2 rounded-lg bg-info p-4">
+      {/* <div className="flex w-full items-center gap-x-2 rounded-lg bg-info p-4">
         <IoMdInformationCircleOutline className="text-2xl" />
         <div className="text-sm">
           Once you successfully created an account,
@@ -32,7 +32,7 @@ export const BasicInfoForm = ({ onSubmit }: BasicInfoFormProps) => {
           tokens will be <span className="font-bold">{" reserved "}</span>. You
           will get them back if you destroy your account.
         </div>
-      </div>
+      </div> */}
       <div className="w-full space-y-6">
         {/* <div className='space-y-1'>
           <div className='flex items-center justify-between'>
