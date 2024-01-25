@@ -1,7 +1,6 @@
+import { ErrorMessage } from "@hookform/error-message";
 import React from "react";
 import { useFormContext } from "react-hook-form";
-import { truncateMiddle } from '../utils'
-import { IoMdInformationCircleOutline } from "react-icons/io";
 
 interface BasicInfoFormProps {
   onSubmit: () => void;
@@ -12,7 +11,12 @@ export interface BasicFormValues {
 }
 
 export const BasicInfoForm = ({ onSubmit }: BasicInfoFormProps) => {
-  const { register, getValues } = useFormContext();
+  const {
+    register,
+    getValues,
+    trigger,
+    formState: { errors },
+  } = useFormContext();
 
   return (
     <div className="flex flex-col items-center gap-y-4 px-8 py-4">
@@ -48,10 +52,22 @@ export const BasicInfoForm = ({ onSubmit }: BasicInfoFormProps) => {
             <div className="text-xs">Required</div>
           </div>
           <input
-            {...register("id")}
-            disabled
+            {...register("id", {
+              required: "Required",
+              pattern: {
+                value: /^[a-zA-Z0-9]{8}$/,
+                message: "Invalid ID Format.",
+              },
+            })}
             className="input"
           ></input>
+          <ErrorMessage
+            errors={errors}
+            name="id"
+            render={({ message }) => (
+              <p className="ml-2 mt-1 text-error-content">{message}</p>
+            )}
+          />
           <div className="text-sm">
             Create a unique ID with 8 characters, choose from a combination
             letters A-z and numbers 0-9 to represent the account name.
@@ -60,7 +76,12 @@ export const BasicInfoForm = ({ onSubmit }: BasicInfoFormProps) => {
       </div>
       <button
         className="btn btn-primary mt-4 w-full !rounded-lg"
-        onClick={onSubmit}
+        onClick={async () => {
+          const isValid = await trigger("id");
+          if (isValid) {
+            onSubmit && onSubmit();
+          }
+        }}
       >
         Proceed
       </button>

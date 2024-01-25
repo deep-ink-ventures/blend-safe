@@ -10,9 +10,9 @@ const AccountCard = ({
   walletAddress,
   onClick,
 }: {
-  wallet: Wallet;
+  wallet: string;
   walletAddress: string;
-  onClick?: (wallet?: Wallet) => void;
+  onClick?: (wallet?: string) => void;
 }) => {
   return (
     <div
@@ -24,16 +24,16 @@ const AccountCard = ({
         <Avatar width={45} height={45} src={AvatarImage} />
         <div>
           <p className="text-lg font-semibold">
-            {truncateMiddle(walletAddress, 5, 3)}
+            {wallet}
           </p>
           {/* <div className=''>{truncateMiddle(account.address, 5, 3)}</div> */}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 hidden">
         <div>
           <div className="flex items-center justify-end gap-1 text-neutral-content">
             <MemberSign className="h-4 w-4 fill-transparent stroke-black" />
-            <span className="text-base">{`${wallet.threshold}`}</span>
+            {/* <span className="text-base">{`${wallet.threshold}`}</span> */}
           </div>
           <div className="text-sm">Signatories</div>
         </div>

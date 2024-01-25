@@ -3,8 +3,8 @@ import { Wallet } from "../../declarations/blend_safe_backend/blend_safe_backend
 import AccountCard from "./AccountCard";
 
 const AccountCards = (props: {
-  wallets?: Wallet[] | null;
-  onClick?: (wallet?: Wallet) => void;
+  wallets?: string[] | null;
+  onClick?: (wallet?: string) => void;
   walletAddress: string;
 }) => {
   return (
