@@ -4,6 +4,7 @@ import cn from "classnames";
 import React, { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
 import BlendSafe from "../../blend_safe";
 import {
   BasicFormValues,
@@ -29,28 +30,42 @@ const CreateAccount = () => {
 
   const formMethods = useForm<CreateAccountFormValues>({
     defaultValues: {
-      id: principal?.substring(4),
+      id: "",
       members: [{ member: principal }],
     },
   });
-  const { getValues } = formMethods;
+  const { getValues, watch } = formMethods;
+
+  const customId = watch('id');
 
   const createWallet = usePromise({
     promiseFunction: async (formData: CreateAccountFormValues) => {
-      const principalFromText = Principal.fromText(principal);
+      try {
+        const principalFromText = Principal.fromText(principal);
 
-      const safe = new BlendSafe(canister as any, principal.substring(4));
+        console.log("formData.id", formData.id);
 
-      await safe.createWallet(
-        [
-          principalFromText,
-          ...(formData.members?.map((member) =>
-            Principal.fromText(member.member)
-          ) || []),
-        ],
-        !!formData.threshold ? Number(formData.threshold) : 1
-      );
-      setStep(3);
+        const safe = new BlendSafe(canister as any, formData.id);
+
+        await safe.createWallet(
+          [
+            principalFromText,
+            ...(formData.members?.map((member) =>
+              Principal.fromText(member.member)
+            ) || []),
+          ],
+          !!formData.threshold ? Number(formData.threshold) : 1
+        );
+        const rawStoredCustomIds = localStorage.getItem("storedCustomIds");
+        const storedCustomIds = JSON.parse(rawStoredCustomIds || "{}");
+        const newArray = Array.isArray(storedCustomIds)
+          ? [...storedCustomIds, formData.id]
+          : [formData.id];
+        localStorage.setItem("storedCustomIds", JSON.stringify(newArray));
+        setStep(3);
+      } catch (ex) {
+        toast.error(ex.toString());
+      }
     },
   });
 
@@ -97,7 +112,7 @@ const CreateAccount = () => {
                     )}
                     {step === 3 && (
                       <Congratulations
-                        onConfirm={() => navigate(`/account/${principal}`)}
+                        onConfirm={() => navigate(`/account/${customId}`)}
                       />
                     )}
                   </div>
@@ -107,6 +122,7 @@ const CreateAccount = () => {
           </FormProvider>
         </div>
       </div>
+      <ToastContainer />
     </MainLayout>
   );
 };

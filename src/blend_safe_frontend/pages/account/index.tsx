@@ -27,7 +27,7 @@ const Account = () => {
 
   const [isImportXdrVisible, setIsImportXdrVisible] = useState(false);
 
-  const { address } = params;
+  const address = params?.address ?? '';
 
   const [currentTab, setCurrentTab] = useState<AccountTabs>("Transactions");
 
@@ -35,7 +35,7 @@ const Account = () => {
 
   const getWallet = usePromise({
     promiseFunction: async () => {
-      const safe = new BlendSafe(canister as any, principal.substring(4));
+      const safe = new BlendSafe(canister as any, address);
       const response = await safe.getWallet();
       return response?.[0];
     },
@@ -43,7 +43,7 @@ const Account = () => {
 
   const getMessagesWithSigners = usePromise({
     promiseFunction: async () => {
-      const safe = new BlendSafe(canister as any, principal.substring(4));
+      const safe = new BlendSafe(canister as any, address);
       const response = await safe.getMessagesWithSigners();
       return response;
     },
@@ -142,6 +142,7 @@ const Account = () => {
           {currentTab === "Dashboard" && <>dashboard</>}
           {currentTab === "Transactions" && (
             <Transactions
+              walletCustomId={address}
               address={address?.toString()}
               getMessagesWithSigners={getMessagesWithSigners}
             />
@@ -158,6 +159,7 @@ const Account = () => {
           </div>
         </div>
         <ImportTransactionModal
+          walletCustomId={address}
           isVisible={isImportXdrVisible}
           accountId={address}
           onClose={() => setIsImportXdrVisible(false)}

@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Wallet } from "../../declarations/blend_safe_backend/blend_safe_backend.did";
 import AccountCards from "./AccountCards";
 
-const SelectAccount = ({ wallets, walletAddress }: { wallets?: Wallet[] | null; walletAddress: string }) => {
+const SelectAccount = ({ wallets, walletAddress }: { wallets?: string[] | null; walletAddress: string }) => {
   const [, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
@@ -31,7 +31,7 @@ const SelectAccount = ({ wallets, walletAddress }: { wallets?: Wallet[] | null; 
         <AccountCards
           walletAddress={walletAddress}
           wallets={wallets}
-          onClick={() => navigate(`/account/${principal}`)}
+          onClick={(wallet) => navigate(`/account/${wallet}`)}
         />
       </div>
     </div>

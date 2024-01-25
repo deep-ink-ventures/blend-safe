@@ -9,6 +9,7 @@ import { usePromise } from "../hooks/usePromise";
 import ConnectWallet from "./ConnectWallet";
 
 interface IImportTransactionProps {
+  walletCustomId:string; 
   isVisible?: boolean;
   accountId?: string;
   children?: ReactNode;
@@ -25,7 +26,7 @@ const MAX_XDR_CHAR_COUNT = 4096;
 const isDebug = true;
 
 const ImportTransactionModal = (props: IImportTransactionProps) => {
-  const { isVisible, accountId, onSuccess, onClose } = props;
+  const { isVisible, accountId, onSuccess, onClose, walletCustomId } = props;
   const [canister] = useCanister("blend_safe_backend");
   const { isConnected, principal } = useConnect();
 
@@ -49,7 +50,7 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
   const propose = usePromise({
     promiseFunction: async (txHash: string) => {
       try {
-        const safe = new BlendSafe(canister as any, principal.substring(4));
+        const safe = new BlendSafe(canister as any, walletCustomId);
         const response = await safe.propose(txHash);
         toast.success("Successfully posted a message");
         reset();
@@ -68,7 +69,7 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
   };
 
   const testGenerateTransactionHash = async () => {
-    const safe = new BlendSafe(canister as any, principal.substring(4));
+    const safe = new BlendSafe(canister as any, walletCustomId);
     const AMOUNT_IN_ETHER = `0.00000${Math.floor(
       Math.random() * (999 - 100 + 1) + 100
     )}`;

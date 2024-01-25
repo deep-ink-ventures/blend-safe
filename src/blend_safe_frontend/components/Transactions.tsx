@@ -19,6 +19,7 @@ import {
 interface ITransactionsProps {
   address?: string;
   getMessagesWithSigners?: any;
+  walletCustomId?: string;
 }
 
 const StatusStepMap: Record<string, number> = {
@@ -72,7 +73,7 @@ const mockData = Array(5)
       statusBadgeValues[generateRandomNumber(0, statusBadgeValues.length - 1)],
   }));
 
-const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
+const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransactionsProps) => {
   const [, setSearchTerm] = useState("");
   const [activeAccordion, setActiveAccordion] = useState<number | null>(null);
 
@@ -81,7 +82,7 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
 
   const getWallet = usePromise({
     promiseFunction: async () => {
-      const safe = new BlendSafe(canister as any, principal.substring(4));
+      const safe = new BlendSafe(canister as any, walletCustomId);
       const response = await safe.getWallet();
       return response?.[0];
     },
@@ -89,7 +90,7 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
 
   const getTransaction = usePromise({
     promiseFunction: async (txHash: string) => {
-      const safe = new BlendSafe(canister as any, principal.substring(4));
+      const safe = new BlendSafe(canister as any, walletCustomId);
       const response = await safe.web3.eth.getTransactionReceipt(`0x${txHash}`);
       return response;
     },
@@ -98,7 +99,7 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
   const approveTransaction = usePromise({
     promiseFunction: async (txnHash: string) => {
       try {
-        const safe = new BlendSafe(canister as any, principal.substring(4));
+        const safe = new BlendSafe(canister as any, walletCustomId);
         const response = await safe.approve(txnHash);
         getMessagesWithSigners.call();
         toast.success("Successfully approved a message");
