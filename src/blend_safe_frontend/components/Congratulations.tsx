@@ -2,8 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import CongratsImage from '../svg/congrats.svg';
 
-export const Congratulations = () => {
-  const navigate = useNavigate();
+interface CongratulationsProps {
+  onConfirm?: () => void;
+}
+
+export const Congratulations = ({ onConfirm}:  CongratulationsProps) => {
   return (
     <>
       <div className='flex flex-col items-center'>
@@ -18,7 +21,7 @@ export const Congratulations = () => {
 
         <button
           className='btn btn-primary mt-4 w-full !rounded-lg'
-          onClick={() => navigate('/account/1')}>
+          onClick={onConfirm}>
           Go to Dashboard
         </button>
       </div>
