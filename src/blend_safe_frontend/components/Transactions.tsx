@@ -2,12 +2,14 @@ import { useCanister, useConnect } from "@connect2ic/react";
 import cn from "classnames";
 import dayjs from "dayjs";
 import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import BlendSafe from "../blend_safe";
 import { usePromise } from "../hooks/usePromise";
 import Search from "../svg/components/Search";
 import { formatDateTime, truncateMiddle } from "../utils";
 import {
   Accordion,
+  EmptyPlaceholder,
   LoadingPlaceholder,
   Timeline,
   TransactionBadge,
@@ -44,6 +46,8 @@ const generateRandomNumber = (min: number, max: number) => {
 };
 
 const statusBadgeValues = Object.values(StatusBadgeMap);
+
+const CHAIN_ID = 5; // goerli
 
 const mockData = Array(5)
   .fill(null)
@@ -91,6 +95,19 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
     },
   });
 
+  const signTransaction = usePromise({
+    promiseFunction: async (transaction: Object) => {
+      try {
+        const safe = new BlendSafe(canister as any, principal.substring(4));
+        const response = await safe.signTransaction(transaction, CHAIN_ID);
+        toast.success("Successfully approved a message");
+        return response;
+      } catch (ex) {
+        toast.error(ex.toString());
+      }
+    },
+  });
+
   const [pagination, setPagination] = useState({
     currentPage: 1,
     offset: 0,
@@ -100,8 +117,12 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
     setSearchTerm(e.target.value);
   };
 
-  const displayButtons = (txn: any) => {
-    switch (txn.status) {
+  const approveTransaction = async (transaction: Object) => {
+    await signTransaction.call(transaction);
+  };
+
+  const displayButtons = (status: any) => {
+    switch (status) {
       case "EXECUTABLE":
         return (
           <div className="flex w-full justify-center">
@@ -118,8 +139,14 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
       case "PENDING":
         return (
           <div className="flex w-full justify-center gap-2">
-            <button className="btn btn-outline flex-1">Reject</button>
-            <button className="btn btn-primary flex-1">Approve</button>
+            <button className="btn btn-outline flex-1 hidden">Reject</button>
+            <button
+              className="btn btn-primary flex-1"
+              disabled
+              onClick={approveTransaction}
+            >
+              Approve
+            </button>
           </div>
         );
 
@@ -163,9 +190,14 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
         <>
           {getMessagesWithSigners.pending && <LoadingPlaceholder />}
           {!getMessagesWithSigners?.pending &&
+            !getMessagesWithSigners?.value?.length && (
+              <EmptyPlaceholder label="You don't have any transactions yet" />
+            )}
+          {!getMessagesWithSigners?.pending &&
             getMessagesWithSigners?.value?.map((txn, index) => {
               const txnAddress = txn[0];
               const txnApprovals = txn[1];
+              const txnStatus = txnApprovals?.length < (getWallet.value?.signers?.length || 0) ? "PENDING" : "EXECUTED";
               return (
                 <Accordion.Container
                   key={index}
@@ -225,7 +257,7 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                         <p className="font-semibold">Updated at: </p>
                         {formatDateTime(txn.updatedAt)}
                       </div>
-                      {txn.status === "EXECUTED" && (
+                      {txnStatus === "EXECUTED" && (
                         <div>
                           <p className="font-semibold">Executed at: </p>
                           {formatDateTime(txn.executedAt)}
@@ -242,7 +274,7 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                           <Timeline.Item
                             key={`${stepIndex}-${step}`}
                             {...(stepIndex <=
-                              (StatusStepMap[txn.status as any] as any) && {
+                              (StatusStepMap[txnStatus as any] as any) && {
                               status:
                                 stepIndex === StatusStepMap[txn.status as any]
                                   ? "active"
@@ -253,12 +285,12 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                           </Timeline.Item>
                         ))}
                       </Timeline>
-                      {txn.status !== "EXECUTED" && (
+                      {txnStatus !== "PENDING" && txnStatus !== "EXECUTED" && (
                         <div>Can be executed once threshold is reached</div>
                       )}
 
                       <div className="flex justify-center">
-                        {displayButtons(txn)}
+                        {displayButtons(txnStatus)}
                       </div>
                     </div>
                   </Accordion.Content>
