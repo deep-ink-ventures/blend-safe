@@ -95,11 +95,12 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
     },
   });
 
-  const signTransaction = usePromise({
-    promiseFunction: async (transaction: Object) => {
+  const approveTransaction = usePromise({
+    promiseFunction: async (txnHash: string) => {
       try {
         const safe = new BlendSafe(canister as any, principal.substring(4));
-        const response = await safe.signTransaction(transaction, CHAIN_ID);
+        const response = await safe.approve(txnHash);
+        getMessagesWithSigners.call();
         toast.success("Successfully approved a message");
         return response;
       } catch (ex) {
@@ -117,11 +118,11 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
     setSearchTerm(e.target.value);
   };
 
-  const approveTransaction = async (transaction: Object) => {
-    await signTransaction.call(transaction);
+  const handleApproveTransaction = async (transaction: string) => {
+    await approveTransaction.call(transaction);
   };
 
-  const displayButtons = (status: any) => {
+  const displayButtons = (status: any, txhash: string) => {
     switch (status) {
       case "EXECUTABLE":
         return (
@@ -130,8 +131,9 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
               className={cn("btn btn-primary min-w-[60%]", {
                 disabled: generateRandomNumber(0, 1) === 0,
               })}
+              disabled
             >
-              Execute
+              Sign
             </button>
           </div>
         );
@@ -139,13 +141,15 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
       case "PENDING":
         return (
           <div className="flex w-full justify-center gap-2">
-            <button className="btn btn-outline flex-1 hidden">Reject</button>
+            <button className="btn btn-outline hidden flex-1">Reject</button>
             <button
-              className="btn btn-primary flex-1"
-              disabled
-              onClick={approveTransaction}
+              className={cn("btn btn-primary flex-1", {
+                loading: approveTransaction.pending,
+              })}
+              disabled={approveTransaction.pending}
+              onClick={() => handleApproveTransaction(txhash)}
             >
-              Approve
+              {approveTransaction.pending ? "Approving" : "Approve"}
             </button>
           </div>
         );
@@ -197,7 +201,10 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
             getMessagesWithSigners?.value?.map((txn, index) => {
               const txnAddress = txn[0];
               const txnApprovals = txn[1];
-              const txnStatus = txnApprovals?.length < (getWallet.value?.signers?.length || 0) ? "PENDING" : "EXECUTED";
+              const txnStatus: any =
+                txnApprovals?.length < (getWallet.value?.signers?.length || 0)
+                  ? "PENDING"
+                  : "EXECUTABLE";
               return (
                 <Accordion.Container
                   key={index}
@@ -269,14 +276,14 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                         {[
                           "Created",
                           `Confirmations ${txnApprovals?.length} of ${getWallet.value?.signers?.length}`,
-                          "Executed",
+                          "Signed",
                         ].map((step, stepIndex) => (
                           <Timeline.Item
                             key={`${stepIndex}-${step}`}
                             {...(stepIndex <=
                               (StatusStepMap[txnStatus as any] as any) && {
                               status:
-                                stepIndex === StatusStepMap[txn.status as any]
+                                stepIndex === StatusStepMap[txnStatus as any]
                                   ? "active"
                                   : "completed",
                             })}
@@ -290,7 +297,7 @@ const Transactions = ({ getMessagesWithSigners }: ITransactionsProps) => {
                       )}
 
                       <div className="flex justify-center">
-                        {displayButtons(txnStatus)}
+                        {displayButtons(txnStatus, txnAddress)}
                       </div>
                     </div>
                   </Accordion.Content>
