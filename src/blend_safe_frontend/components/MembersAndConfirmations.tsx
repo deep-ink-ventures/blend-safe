@@ -1,5 +1,6 @@
+import { useConnect } from "@connect2ic/react";
 import { ErrorMessage } from "@hookform/error-message";
-import React from "react";
+import React, { useEffect } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { IoMdAdd, IoMdClose } from "react-icons/io";
 
@@ -19,10 +20,13 @@ export const MembersAndConfirmations = ({
   onSubmit,
   onBack,
 }: MembersAndConfirmationsProps) => {
+  const { principal } = useConnect();
   const {
     control,
     register,
     trigger,
+    watch,
+    setValue,
     formState: { errors },
   } = useFormContext();
 
@@ -31,6 +35,14 @@ export const MembersAndConfirmations = ({
       name: "members",
       control,
     });
+
+  const members = watch("members");
+
+  useEffect(() => {
+    if (!members?.[0]?.member) {
+      setValue(`members.${0}.member`, principal);
+    }
+  }, []);
 
   return (
     <>
@@ -106,7 +118,7 @@ export const MembersAndConfirmations = ({
             />
             <ErrorMessage
               errors={errors}
-              name='threshold'
+              name="threshold"
               render={({ message }) => (
                 <p className="ml-2 mt-1 text-error-content">{message}</p>
               )}
