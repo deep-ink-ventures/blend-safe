@@ -50,6 +50,27 @@ class BlendSafe {
         }
     }
 
+    async addSigner(principal: Principal): Promise<void> {
+        const result = await this.canister.add_signer(this.walletId, principal);
+        if (result.Err) {
+            throw new Error(result.Err);
+        }
+    }
+
+    async removeSigner(principal: Principal): Promise<void> {
+        const result = await this.canister.remove_signer(this.walletId, principal);
+        if (result.Err) {
+            throw new Error(result.Err);
+        }
+    }
+
+    async setThreshold(threshold: number): Promise<void> {
+        const result = await this.canister.set_threshold(this.walletId, threshold);
+        if (result.Err) {
+            throw new Error(result.Err);
+        }
+    }
+
     getEthTransactionHashFromTransactionObject(transaction: Object, chainId: number) {
         const tx = new Transaction(transaction, { chain: chainId });
         return tx.hash(false).toString('hex')

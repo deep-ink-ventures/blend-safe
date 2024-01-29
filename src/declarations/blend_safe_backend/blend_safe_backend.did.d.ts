@@ -8,6 +8,11 @@ export interface Wallet {
   'message_queue' : Array<[Uint8Array | number[], Array<Principal>]>,
 }
 export interface _SERVICE {
+  'add_signer' : ActorMethod<
+    [string, Principal],
+    { 'Ok' : string } |
+      { 'Err' : string }
+  >,
   'approve' : ActorMethod<
     [string, string],
     { 'Ok' : number } |
@@ -39,6 +44,16 @@ export interface _SERVICE {
   'propose' : ActorMethod<
     [string, string],
     { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'remove_signer' : ActorMethod<
+    [string, Principal],
+    { 'Ok' : string } |
+      { 'Err' : string }
+  >,
+  'set_threshold' : ActorMethod<
+    [string, number],
+    { 'Ok' : string } |
       { 'Err' : string }
   >,
   'sign' : ActorMethod<

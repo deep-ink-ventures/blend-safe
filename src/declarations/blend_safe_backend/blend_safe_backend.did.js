@@ -7,6 +7,11 @@ export const idlFactory = ({ IDL }) => {
     ),
   });
   return IDL.Service({
+    'add_signer' : IDL.Func(
+        [IDL.Text, IDL.Principal],
+        [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
+        [],
+      ),
     'approve' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Nat8, 'Err' : IDL.Text })],
@@ -47,6 +52,16 @@ export const idlFactory = ({ IDL }) => {
     'propose' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'remove_signer' : IDL.Func(
+        [IDL.Text, IDL.Principal],
+        [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
+        [],
+      ),
+    'set_threshold' : IDL.Func(
+        [IDL.Text, IDL.Nat8],
+        [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
         [],
       ),
     'sign' : IDL.Func(
