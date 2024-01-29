@@ -22,5 +22,9 @@ service : (text) -> {
     get_messages_to_sign: (text) -> (variant { Ok: vec text; Err: text });
     get_proposed_messages: (text) -> (variant { Ok: vec text; Err: text });
     get_messages_with_signers: (text) -> (variant { Ok: vec record { text; vec principal };  Err: text });
+
+    add_signer: (text, principal) -> (variant { Ok: text; Err: text });
+    remove_signer: (text, principal) -> (variant { Ok: text; Err: text });
+    set_threshold: (text, nat8) -> (variant { Ok: text; Err: text });
 }
 

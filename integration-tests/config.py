@@ -13,7 +13,7 @@ def get_wallet_id():
 
 
 def assert_ok(res):
-    assert 'Ok' in res[0], 'Result not ok'
+    assert 'Ok' in res[0], f'Result not ok: {res}'
 
 
 def assert_err(res, error=""):

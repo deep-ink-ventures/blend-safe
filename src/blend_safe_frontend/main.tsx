@@ -10,7 +10,6 @@ import Account from "./pages/account";
 import CreateAccount from "./pages/create-account";
 import "./styles/global.css";
 import {idlFactory, canisterId} from "../declarations/blend_safe_backend";
-console.log(process.env.NODE_ENV)
 const client = createClient({
   canisters: {
     "blend_safe_backend": {

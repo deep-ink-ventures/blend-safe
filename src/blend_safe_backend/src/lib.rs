@@ -3,6 +3,7 @@ mod ecdsa;
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::str::FromStr;
 use candid::Principal;
 use ic_cdk::{caller, init, query, update};
 use ic_cdk::api::management_canister::ecdsa::EcdsaKeyId;
@@ -64,7 +65,7 @@ fn create_wallet(wallet_id: String, signers: Vec<Principal>, threshold: u8) -> R
         wallet.add_signer(signer.clone());
     });
     if wallet.set_default_threshold(threshold).is_err() {
-        return Err(WALLET_SIGNERS_NOT_MATCH_THRESHOLD.to_string())
+        return Err(WALLET_SIGNERS_NOT_MATCH_THRESHOLD.to_string());
     }
 
     WALLETS.with(|wallets| {
@@ -106,12 +107,12 @@ fn propose(wallet_id: String, msg: String) -> Result<(), String> {
     WALLETS.with(|wallets| {
         wallets.borrow_mut().get_mut(&wallet_id).ok_or(WALLET_NOT_FOUND_ERROR.to_string()).unwrap()
             .propose_message(caller(), msg).map_err(|error| {
-                match error {
-                    WalletError::MsgAlreadyQueued => WALLET_MSG_ALREADY_QUEUED_ERROR.to_string(),
-                    WalletError::InvalidSignature => WALLET_INVALID_SIGNATURE_ERROR.to_string(),
-                    _ => "UnknownError".to_string(),
-                }
-            })
+            match error {
+                WalletError::MsgAlreadyQueued => WALLET_MSG_ALREADY_QUEUED_ERROR.to_string(),
+                WalletError::InvalidSignature => WALLET_INVALID_SIGNATURE_ERROR.to_string(),
+                _ => "UnknownError".to_string(),
+            }
+        })
     })
 }
 
@@ -151,8 +152,12 @@ fn can_sign(wallet_id: String, msg: String) -> bool {
 #[update]
 fn approve(wallet_id: String, msg: String) -> Result<u8, String> {
     let msg = hex::decode(msg).map_err(|_| "InvalidMessage".to_string())?;
+
     WALLETS.with(|wallets| {
-         wallets.borrow_mut().get_mut(&wallet_id).ok_or(WALLET_NOT_FOUND_ERROR.to_string()).unwrap()
+        wallets
+            .borrow_mut()
+            .get_mut(&wallet_id)
+            .ok_or(WALLET_NOT_FOUND_ERROR.to_string())?
             .approve(msg, caller()).map_err(|error| {
                 match error {
                     WalletError::MsgNotQueued => "WalletMsgNotQueued".to_string(),
@@ -189,9 +194,46 @@ async fn sign(wallet_id: String, msg: String) -> Result<String, String> {
     if !can_sign {
         return Err(WALLET_CANNOT_SIGN_ERROR.to_string());
     }
+    let mut is_special_message = false;
+    if let Ok(message_str) = String::from_utf8(msg.clone()) {
+        WALLETS.with(|wallets| {
+            let mut wallets = wallets.borrow_mut();
 
-    let signature = sign_message(wallet_id, msg, key_id).await?;
-    Ok(hex::encode(signature))
+            // it is safe to unwrap here, as we checked that the wallet exists before
+            let wallet = wallets.get_mut(&wallet_id)
+                            .ok_or(WALLET_NOT_FOUND_ERROR.to_string()).unwrap();
+
+             // Handle special add/remove signer commands
+             if message_str.starts_with("ADD_SIGNER::") {
+                let new_signer_str = &message_str["ADD_SIGNER::".len()..];
+                if let Ok(new_signer) = Principal::from_str(new_signer_str) {
+                    wallet.add_signer(new_signer);
+                }
+                is_special_message = true;
+             } else if message_str.starts_with("REMOVE_SIGNER::") {
+                let signer_to_remove_str = &message_str["REMOVE_SIGNER::".len()..];
+                if let Ok(signer_to_remove) = Principal::from_str(signer_to_remove_str) {
+                    wallet.remove_signer(signer_to_remove);
+                }
+                is_special_message = true;
+            }
+            // Handle special set threshold command
+            else if message_str.starts_with("SET_THRESHOLD::") {
+                let new_threshold_str = &message_str["SET_THRESHOLD::".len()..];
+                if let Ok(new_threshold) = u8::from_str(new_threshold_str) {
+                    wallet.set_default_threshold(new_threshold).unwrap();
+                }
+                is_special_message = true;
+            }
+        });
+    }
+
+    if !is_special_message {
+        let signature = sign_message(wallet_id, msg, key_id).await?;
+        Ok(hex::encode(signature))
+    } else {
+        Ok("".to_string())
+    }
 }
 
 /// Retrieves the Ethereum address associated with the wallet.
@@ -224,7 +266,6 @@ async fn eth_address(wallet_id: String) -> Result<String, String> {
 /// * `Result<bool, String>` - True if the signature is valid, otherwise an error message.
 #[update]
 async fn verify_signature(wallet_id: String, message: String, signature: String) -> Result<bool, String> {
-
     let message = hex::decode(message).map_err(|_| "Invalid message".to_string())?;
     let signature = hex::decode(signature).map_err(|_| "Invalid signature".to_string())?;
     let key_id = KEY_ID.with(|key_id| {
@@ -249,9 +290,9 @@ fn get_messages_to_sign(wallet_id: String) -> Result<Vec<String>, String> {
             .ok_or(WALLET_NOT_FOUND_ERROR.to_string())
             .map(|wallet| {
                 wallet.get_messages_to_sign()
-                      .into_iter()
-                      .map(|msg| hex::encode(msg))
-                      .collect()
+                    .into_iter()
+                    .map(|msg| hex::encode(msg))
+                    .collect()
             })
     })
 }
@@ -272,9 +313,9 @@ fn get_proposed_messages(wallet_id: String) -> Result<Vec<String>, String> {
             .ok_or(WALLET_NOT_FOUND_ERROR.to_string())
             .map(|wallet| {
                 wallet.get_proposed_messages()
-                      .into_iter()
-                      .map(|msg| hex::encode(msg))
-                      .collect()
+                    .into_iter()
+                    .map(|msg| hex::encode(msg))
+                    .collect()
             })
     })
 }
@@ -295,9 +336,60 @@ fn get_messages_with_signers(wallet_id: String) -> Result<Vec<(String, Vec<Princ
             .ok_or(WALLET_NOT_FOUND_ERROR.to_string())
             .map(|wallet| {
                 wallet.get_messages_with_signers()
-                      .into_iter()
-                      .map(|(msg, signers)| (hex::encode(msg), signers))
-                      .collect()
+                    .into_iter()
+                    .map(|(msg, signers)| (hex::encode(msg), signers))
+                    .collect()
             })
     })
+}
+
+/// Proposes adding a new signer to the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `new_signer` - The Principal of the new signer to add.
+///
+/// # Returns
+///
+/// * `Result<(), String>` - Result indicating success or an error message.
+#[update]
+fn add_signer(wallet_id: String, new_signer: Principal) -> Result<String, String> {
+    let special_message = hex::encode(format!("ADD_SIGNER::{}", new_signer));
+    let _ = propose(wallet_id, special_message.clone());
+    Ok(special_message)
+}
+
+/// Proposes removing a signer from the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `signer_to_remove` - The Principal of the signer to remove.
+///
+/// # Returns
+///
+/// * `Result<(), String>` - Result indicating success or an error message.
+#[update]
+fn remove_signer(wallet_id: String, signer_to_remove: Principal) -> Result<String, String> {
+    let special_message = hex::encode(format!("REMOVE_SIGNER::{}", signer_to_remove));
+    let _ = propose(wallet_id, special_message.clone());
+    Ok(special_message)
+}
+
+/// Proposes setting a new threshold for the wallet.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `new_threshold` - The new threshold value to set.
+///
+/// # Returns
+///
+/// * `Result<String, String>` - Result indicating success or an error message.
+#[update]
+fn set_threshold(wallet_id: String, new_threshold: u8) -> Result<String, String> {
+    let special_message = hex::encode(format!("SET_THRESHOLD::{}", new_threshold));
+    let _ = propose(wallet_id, special_message.clone());
+    Ok(special_message)
 }
