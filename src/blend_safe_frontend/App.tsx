@@ -14,23 +14,22 @@ import {Principal} from "@dfinity/principal";
 
 
 async function blendSafeSample(canister: any, principal: any) {
-    const walletId = "CHPTEST2"
-    const safe = new BlendSafe(canister, walletId);
+    const safe = new BlendSafe(canister,  "CHPTEST1");
     console.log(await safe.getWalletsForPrincipal(Principal.fromText(principal)))
 
-    const amountInEtherToSend = '0.000000000001'
-    const chainId = 5 // goerli
-    const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243"
-
-    const transaction = await safe.prepareSendEthTransaction(receiver, amountInEtherToSend)
-    console.log(JSON.stringify(transaction))
-
-    const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
-
-    await safe.propose(txHash);
-    await safe.approve(txHash);
-    const receipt = await safe.signAndBroadcastTransaction(transaction, chainId)
-    console.log(receipt)
+    // const amountInEtherToSend = '0.000000000001'
+    // const chainId = 5 // goerli
+    // const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243"
+    //
+    // const transaction = await safe.prepareSendEthTransaction(receiver, amountInEtherToSend)
+    // console.log(JSON.stringify(transaction))
+    //
+    // const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
+    //
+    // await safe.propose(txHash);
+    // await safe.approve(txHash);
+    // const receipt = await safe.signAndBroadcastTransaction(transaction, chainId)
+    // console.log(receipt)
 }
 
 function App() {

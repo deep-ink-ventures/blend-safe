@@ -19,7 +19,7 @@ class BlendSafe {
     web3: Web3;
     private canister: typeof blend_safe_backend;
 
-    constructor(canister: typeof blend_safe_backend, walletId: string) {
+    constructor(canister: typeof blend_safe_backend, walletId: string = 'default') {
         this.walletId = walletId;
         this.canister = canister
         this.web3 = new Web3(PROVIDER);

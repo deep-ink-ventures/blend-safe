@@ -62,24 +62,30 @@ fn create_wallet(wallet_id: String, signers: Vec<Principal>, threshold: u8) -> R
     }
 
     let mut wallet = Wallet::default();
-
     signers.iter().for_each(|signer| {
         wallet.add_signer(signer.clone());
-        PRINCIPAL_WALLETS_MAP.with(|map| {
-            let mut map = map.borrow_mut();
-            map.entry(signer.clone()).or_insert_with(Vec::new).push(wallet_id.clone());
-        });
     });
 
     if wallet.set_default_threshold(threshold).is_err() {
         return Err(WALLET_SIGNERS_NOT_MATCH_THRESHOLD.to_string());
     }
 
+    let wallet_id_clone = wallet_id.clone(); // Clone wallet_id
     WALLETS.with(|wallets| {
-        wallets.borrow_mut().insert(wallet_id, wallet);
+        wallets.borrow_mut().insert(wallet_id_clone, wallet.clone()); // Clone wallet
     });
+
+    // Now, use the original wallet and wallet_id
+    for signer in wallet.get_signers() {
+        let wallet_id_clone = wallet_id.clone(); // Clone wallet_id for use in the closure
+        PRINCIPAL_WALLETS_MAP.with(|map| {
+            let mut map = map.borrow_mut();
+            map.entry(signer.clone()).or_insert_with(Vec::new).push(wallet_id_clone);
+        });
+    }
     Ok(())
 }
+
 
 /// Retrieves a wallet by its ID.
 ///
