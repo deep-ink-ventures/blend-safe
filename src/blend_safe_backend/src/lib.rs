@@ -70,6 +70,7 @@ fn create_wallet(wallet_id: String, signers: Vec<Principal>, threshold: u8) -> R
             map.entry(signer.clone()).or_insert_with(Vec::new).push(wallet_id.clone());
         });
     });
+
     if wallet.set_default_threshold(threshold).is_err() {
         return Err(WALLET_SIGNERS_NOT_MATCH_THRESHOLD.to_string());
     }

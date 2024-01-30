@@ -10,11 +10,13 @@ import { MainLayout } from "./layouts";
 import BlendSafe  from "./blend_safe";
 import { useCanister } from "@connect2ic/react"
 import 'react-toastify/dist/ReactToastify.css';
+import {Principal} from "@dfinity/principal";
 
 
-async function blendSafeSample(canister: any) {
+async function blendSafeSample(canister: any, principal: any) {
     const walletId = "CHPTEST2"
     const safe = new BlendSafe(canister, walletId);
+    console.log(await safe.getWalletsForPrincipal(Principal.fromText(principal)))
 
     const amountInEtherToSend = '0.000000000001'
     const chainId = 5 // goerli
@@ -32,13 +34,13 @@ async function blendSafeSample(canister: any) {
 }
 
 function App() {
-  const { isConnected } = useConnect();
+  const { isConnected, principal } = useConnect();
   const [canister] = useCanister("blend_safe_backend");
 
   return (
     <MainLayout title={"Blendsafe"} description={""}>
       {isConnected ? (
-        <a onClick={() => blendSafeSample(canister)}>sample()</a>
+        <a onClick={() => blendSafeSample(canister, principal)}>sample()</a>
       ) : null}
       <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">
         {isConnected ? <Welcome /> : <ConnectWallet />}

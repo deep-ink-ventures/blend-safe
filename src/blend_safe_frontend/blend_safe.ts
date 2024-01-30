@@ -79,6 +79,10 @@ class BlendSafe {
         }
     }
 
+    async getWalletsForPrincipal(principal: Principal): Promise<Array<string>> {
+        return await this.canister.get_wallets_for_principal(principal);
+    }
+
     async getBasicEthTransactionObject(receiver: string): Promise<EthTransaction> {
         const wallet = await this.getEthAddress()
 
