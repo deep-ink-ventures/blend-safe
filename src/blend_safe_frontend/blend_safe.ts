@@ -9,6 +9,7 @@ interface EthTransaction {
     gas: string;
     nonce: string;
     value?: string; // Optional since it might not be included in all transactions
+    data?: string; // Optional, only included in smart contract interactions that require an encoded ABI
 }
 
 // todo: move to config
