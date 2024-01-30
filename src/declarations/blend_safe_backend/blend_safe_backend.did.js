@@ -49,6 +49,11 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'get_wallet' : IDL.Func([IDL.Text], [IDL.Opt(Wallet)], []),
+    'get_wallets_for_principal' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(IDL.Text)],
+        [],
+      ),
     'propose' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],

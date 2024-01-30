@@ -12,8 +12,10 @@ use crate::wallet::{MultiSignatureWallet, Wallet, WalletError};
 use crate::ecdsa::{get_eth_address, sign_message, get_ecdsa_key_id_from_env, is_signature_valid};
 
 type WalletStore = BTreeMap<String, Wallet>;
+type PrincipalWalletsMap = BTreeMap<Principal, Vec<String>>;
 
 thread_local! {
+    static PRINCIPAL_WALLETS_MAP: RefCell<PrincipalWalletsMap> = RefCell::default();
     static WALLETS: RefCell<WalletStore> = RefCell::default();
     static KEY_ID: RefCell<EcdsaKeyId> = RefCell::default();
 }
@@ -63,6 +65,10 @@ fn create_wallet(wallet_id: String, signers: Vec<Principal>, threshold: u8) -> R
 
     signers.iter().for_each(|signer| {
         wallet.add_signer(signer.clone());
+        PRINCIPAL_WALLETS_MAP.with(|map| {
+            let mut map = map.borrow_mut();
+            map.entry(signer.clone()).or_insert_with(Vec::new).push(wallet_id.clone());
+        });
     });
     if wallet.set_default_threshold(threshold).is_err() {
         return Err(WALLET_SIGNERS_NOT_MATCH_THRESHOLD.to_string());
@@ -208,12 +214,22 @@ async fn sign(wallet_id: String, msg: String) -> Result<String, String> {
                 let new_signer_str = &message_str["ADD_SIGNER::".len()..];
                 if let Ok(new_signer) = Principal::from_str(new_signer_str) {
                     wallet.add_signer(new_signer);
+                    PRINCIPAL_WALLETS_MAP.with(|map| {
+                        let mut map = map.borrow_mut();
+                        map.entry(new_signer.clone()).or_insert_with(Vec::new).push(wallet_id.clone());
+                    });
                 }
                 is_special_message = true;
              } else if message_str.starts_with("REMOVE_SIGNER::") {
                 let signer_to_remove_str = &message_str["REMOVE_SIGNER::".len()..];
                 if let Ok(signer_to_remove) = Principal::from_str(signer_to_remove_str) {
                     wallet.remove_signer(signer_to_remove);
+                    PRINCIPAL_WALLETS_MAP.with(|map| {
+                        let mut map = map.borrow_mut();
+                        if let Some(wallets) = map.get_mut(&signer_to_remove) {
+                            wallets.retain(|id| id != &wallet_id);
+                        }
+                    });
                 }
                 is_special_message = true;
             }
@@ -392,4 +408,23 @@ fn set_threshold(wallet_id: String, new_threshold: u8) -> Result<String, String>
     let special_message = hex::encode(format!("SET_THRESHOLD::{}", new_threshold));
     let _ = propose(wallet_id, special_message.clone());
     Ok(special_message)
+}
+
+/// Retrieves all wallets associated with a given principal.
+///
+/// # Arguments
+///
+/// * `principal` - The principal to retrieve wallets for.
+///
+/// # Returns
+///
+/// * `Vec<String>` - A list of wallet IDs associated with the principal.
+#[query]
+fn get_wallets_for_principal(principal: Principal) -> Vec<String> {
+    PRINCIPAL_WALLETS_MAP.with(|map| {
+        map.borrow()
+           .get(&principal)
+           .cloned()
+           .unwrap_or_default()
+    })
 }

@@ -122,3 +122,36 @@ def test_change_threshold():
     # Verify the new threshold is set
     wallet = safe.get_wallet(wallet_id)[0][0]
     assert wallet['threshold'] == new_threshold
+
+
+def test_principal_wallets_map_update():
+    wallet_id = get_wallet_id()
+    safe = create_safe()
+    principals = get_default_principals()
+    new_signer = get_default_principals()[2]  # Choose a new signer
+
+    # Create wallet with initial signers
+    assert_ok(safe.create_wallet(wallet_id, principals[:2], 1))
+
+    # Check if the wallet is associated with the initial signers
+    for principal in principals[:2]:
+        wallets_for_principal = safe.get_wallets_for_principal(principal)[0]
+        assert wallet_id in wallets_for_principal
+
+    # Add a new signer to the wallet
+    add_msg = safe.add_signer(wallet_id, new_signer)[0]['Ok']
+    assert_ok(safe.approve(wallet_id, add_msg))
+    assert_ok(safe.sign(wallet_id, add_msg))
+
+    # Check if the wallet is now associated with the new signer
+    wallets_for_new_signer = safe.get_wallets_for_principal(new_signer)[0]
+    assert wallet_id in wallets_for_new_signer
+
+    # Remove the new signer from the wallet
+    remove_msg = safe.remove_signer(wallet_id, new_signer)[0]['Ok']
+    assert_ok(safe.approve(wallet_id, remove_msg))
+    assert_ok(safe.sign(wallet_id, remove_msg))
+
+    # Check if the wallet is no longer associated with the removed signer
+    wallets_for_removed_signer = safe.get_wallets_for_principal(new_signer)[0]
+    assert wallet_id not in wallets_for_removed_signer

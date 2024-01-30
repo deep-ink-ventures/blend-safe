@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect} from "react";
 
 import "@connect2ic/core/style.css";
 import {ConnectDialog, useConnect} from "@connect2ic/react";
@@ -8,63 +8,37 @@ import Welcome from "./components/Welcome";
 
 import { MainLayout } from "./layouts";
 import BlendSafe  from "./blend_safe";
-import {Principal} from "@dfinity/principal";
 import { useCanister } from "@connect2ic/react"
-import { ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 
 
-async function blendSafeSample(canister: any, principalId: string) {
-    const principal = Principal.fromText(principalId);
-
-    // random wallet id
-    const walletId = (Math.random() + 1).toString(36).substring(4); 
-    console.log("walletId", walletId)
-
+async function blendSafeSample(canister: any) {
+    const walletId = "CHPTEST2"
     const safe = new BlendSafe(canister, walletId);
 
-    await safe.createWallet([principal], 1)
-    console.log("wallet created ...")
+    const amountInEtherToSend = '0.000000000001'
+    const chainId = 5 // goerli
+    const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243"
 
-    const wallet = await safe.getWallet()
-    console.log("wallet", wallet)
+    const transaction = await safe.prepareSendEthTransaction(receiver, amountInEtherToSend)
+    console.log(JSON.stringify(transaction))
 
-    const AMOUNT_IN_ETHER = '0.00000051'
-    const GAS = 2100000000
-    const CHAIN_ID = 5 // goerli
+    const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
 
-    const walletAddress = await safe.getEthAddress();
-    console.log("ethAddress", walletAddress)
-
-     // Create a transaction object
-
-    const transaction = {
-        to: '0x5Ac014CB02e290562e608A94C1f5033Ea54e9243',
-        value: safe.web3.utils.toHex(safe.web3.utils.toWei(AMOUNT_IN_ETHER, 'ether')),
-        gas: safe.web3.utils.toHex(GAS),
-        gasPrice: safe.web3.utils.toHex(await safe.web3.eth.getGasPrice()),
-        nonce: safe.web3.utils.toHex(await safe.web3.eth.getTransactionCount(walletAddress)),
-        chainId: CHAIN_ID
-    };
-    const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, CHAIN_ID);
     await safe.propose(txHash);
-    console.log(await safe.getProposedMessages());
     await safe.approve(txHash);
-    console.log(await safe.getMessagesToSign());
-
-    console.log(await safe.getMessagesWithSigners());
-    const signedTransaction = await safe.signTransaction(transaction, CHAIN_ID)
-
-    console.log("signed", signedTransaction)
+    const receipt = await safe.signAndBroadcastTransaction(transaction, chainId)
+    console.log(receipt)
 }
 
 function App() {
-  const { isConnected, principal } = useConnect();
+  const { isConnected } = useConnect();
   const [canister] = useCanister("blend_safe_backend");
+
   return (
     <MainLayout title={"Blendsafe"} description={""}>
       {isConnected ? (
-        <a className="hidden" onClick={() => blendSafeSample(canister, principal)}>sample()</a>
+        <a onClick={() => blendSafeSample(canister)}>sample()</a>
       ) : null}
       <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">
         {isConnected ? <Welcome /> : <ConnectWallet />}

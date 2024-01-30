@@ -3,6 +3,14 @@ import {Principal} from "@dfinity/principal";
 import Web3 from "web3";
 import {Transaction} from 'ethereumjs-tx';
 
+interface EthTransaction {
+    to: string;
+    gasPrice: string;
+    gas: string;
+    nonce: string;
+    value?: string; // Optional since it might not be included in all transactions
+}
+
 // todo: move to config
 export const PROVIDER =  "https://goerli.infura.io/v3/1aa49601abc34fce881a9934647b806a"
 
@@ -71,12 +79,37 @@ class BlendSafe {
         }
     }
 
+    async getBasicEthTransactionObject(receiver: string): Promise<EthTransaction> {
+        const wallet = await this.getEthAddress()
+
+        const gasLimit = await this.web3.eth.estimateGas({
+            from: wallet,
+            to: receiver,
+        });
+        const gasPrice = await this.web3.eth.getGasPrice();
+        const nonce = await this.web3.eth.getTransactionCount(wallet);
+
+       return {
+            to: receiver,
+            gasPrice: this.web3.utils.toHex(gasPrice), // Gas price in wei, converted to hex
+            gas: this.web3.utils.toHex(gasLimit), // Gas limit, converted to hex
+            nonce: this.web3.utils.toHex(nonce), // Nonce, converted to hex
+        };
+    }
+
+    async prepareSendEthTransaction(receiver: string, amountInEth: string): Promise<EthTransaction> {
+        const baseTransaction = await this.getBasicEthTransactionObject(receiver);
+        const valueInWei = BigInt(this.web3.utils.toWei(amountInEth, 'ether'));
+        baseTransaction.value = this.web3.utils.toHex(valueInWei);
+        return baseTransaction;
+    }
+
     getEthTransactionHashFromTransactionObject(transaction: Object, chainId: number) {
         const tx = new Transaction(transaction, { chain: chainId });
         return tx.hash(false).toString('hex')
     }
 
-    async signTransaction(transaction: Object, chainId: number): Promise<Object> {
+    async signTransaction(transaction: Object, chainId: number): Promise<String> {
        const tx = new Transaction(transaction, { chain: chainId });
 
         // Hash the transaction and send it to the signing service
@@ -102,6 +135,12 @@ class BlendSafe {
 
         // Serialize the transaction
         return '0x' + tx.serialize().toString('hex');
+    }
+
+    async signAndBroadcastTransaction(transaction: Object, chainId: number): Promise<Object> {
+        const signedTransaction = await this.signTransaction(transaction, chainId);
+        // @ts-ignore
+        return this.web3.eth.sendSignedTransaction(signedTransaction);
     }
 
     // Retrieve all messages that can be signed

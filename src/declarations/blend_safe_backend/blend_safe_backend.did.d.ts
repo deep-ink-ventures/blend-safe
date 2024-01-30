@@ -41,6 +41,7 @@ export interface _SERVICE {
       { 'Err' : string }
   >,
   'get_wallet' : ActorMethod<[string], [] | [Wallet]>,
+  'get_wallets_for_principal' : ActorMethod<[Principal], Array<string>>,
   'propose' : ActorMethod<
     [string, string],
     { 'Ok' : null } |
