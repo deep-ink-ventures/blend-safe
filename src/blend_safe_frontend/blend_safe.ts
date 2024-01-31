@@ -3,13 +3,13 @@ import {Principal} from "@dfinity/principal";
 import Web3 from "web3";
 import {Transaction} from 'ethereumjs-tx';
 
-interface EthTransaction {
+interface TransactionObject {
     to: string;
     gasPrice: string;
     gas: string;
     nonce: string;
     value?: string; // Optional since it might not be included in all transactions
-    data?: string; // Optional, only included in smart contract interactions that require an encoded ABI
+    data?: string; // encoded ABI, optional as well
 }
 
 // todo: move to config
@@ -84,7 +84,7 @@ class BlendSafe {
         return await this.canister.get_wallets_for_principal(principal);
     }
 
-    async getBasicEthTransactionObject(receiver: string): Promise<EthTransaction> {
+    async getBasicEthTransactionObject(receiver: string): Promise< TransactionObject> {
         const wallet = await this.getEthAddress()
 
         const gasLimit = await this.web3.eth.estimateGas({
@@ -102,11 +102,82 @@ class BlendSafe {
         };
     }
 
-    async prepareSendEthTransaction(receiver: string, amountInEth: string): Promise<EthTransaction> {
+    async prepareSendEthTransaction(receiver: string, amountInEth: string): Promise< TransactionObject> {
         const baseTransaction = await this.getBasicEthTransactionObject(receiver);
         const valueInWei = BigInt(this.web3.utils.toWei(amountInEth, 'ether'));
         baseTransaction.value = this.web3.utils.toHex(valueInWei);
         return baseTransaction;
+    }
+
+
+    async prepareERC20Transfer(
+        contractAddress: string,
+        receiverAddress: string,
+        amountOfTokens: string,
+        tokenDecimals?: number
+    ): Promise<TransactionObject> {
+        const erc20ABI = [
+            // ... other ERC20 functions ...
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "decimals",
+                "outputs": [{"name": "", "type": "uint8"}],
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}],
+                "name": "transfer",
+                "outputs": [{"name": "", "type": "bool"}],
+                "type": "function"
+            }
+        ];
+
+        if (tokenDecimals === undefined) {
+            const contract = new this.web3.eth.Contract(erc20ABI, contractAddress);
+            tokenDecimals = await contract.methods.decimals().call();
+            if (tokenDecimals === undefined) {
+                throw new Error("Token decimals not provided and cannot be fetched from contract");
+            }
+        }
+
+        const tokenAmountInSmallestUnit = BigInt(amountOfTokens) * BigInt(10 ** tokenDecimals);
+
+        return this.prepareSmartContractEthTransaction(
+            contractAddress,
+            erc20ABI,
+            'transfer',
+            [receiverAddress, tokenAmountInSmallestUnit.toString()],
+            contractAddress,
+            '0'
+        );
+    }
+
+     async prepareSmartContractEthTransaction(
+        contractAddress: string,
+        contractABI: any[], // ABI of the contract
+        methodName: string,
+        methodArgs: any[], // Arguments for the method
+        receiver: string, // Receiver address
+        amountInEth?: string // Amount in ETH to send, if applicable
+    ): Promise<TransactionObject> {
+        const contract = new this.web3.eth.Contract(contractABI, contractAddress);
+        const method = contract.methods[methodName](...methodArgs);
+        const encodedABI = method.encodeABI();
+
+        const baseTransaction = await this.getBasicEthTransactionObject(receiver);
+
+        if (amountInEth) {
+            const valueInWei = BigInt(this.web3.utils.toWei(amountInEth, 'ether'));
+            baseTransaction.value = this.web3.utils.toHex(valueInWei);
+        }
+
+        return {
+            ...baseTransaction,
+            to: contractAddress,
+            data: encodedABI
+        };
     }
 
     getEthTransactionHashFromTransactionObject(transaction: Object, chainId: number) {

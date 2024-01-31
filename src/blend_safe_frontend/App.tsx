@@ -1,4 +1,4 @@
-import React, {useEffect} from "react";
+import React from "react";
 
 import "@connect2ic/core/style.css";
 import {ConnectDialog, useConnect} from "@connect2ic/react";
@@ -10,36 +10,80 @@ import { MainLayout } from "./layouts";
 import BlendSafe  from "./blend_safe";
 import { useCanister } from "@connect2ic/react"
 import 'react-toastify/dist/ReactToastify.css';
-import {Principal} from "@dfinity/principal";
 
 
-async function blendSafeSample(canister: any, principal: any) {
+async function blendSafeSample(canister: any) {
     const safe = new BlendSafe(canister,  "CHPTEST1");
-    console.log(await safe.getWalletsForPrincipal(Principal.fromText(principal)))
 
-    // const amountInEtherToSend = '0.000000000001'
-    // const chainId = 5 // goerli
-    // const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243"
-    //
-    // const transaction = await safe.prepareSendEthTransaction(receiver, amountInEtherToSend)
-    // console.log(JSON.stringify(transaction))
-    //
-    // const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
-    //
-    // await safe.propose(txHash);
-    // await safe.approve(txHash);
-    // const receipt = await safe.signAndBroadcastTransaction(transaction, chainId)
-    // console.log(receipt)
+    /** 1. Send eth from safe to someone **/
+
+    const amountInEtherToSend = '0.000000000001'
+    const chainId = 5 // goerli
+    const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243"
+
+    const transaction = await safe.prepareSendEthTransaction(receiver, amountInEtherToSend)
+    console.log(safe.getEthTransactionHashFromTransactionObject(transaction, chainId))
+    console.log(safe.getEthTransactionHashFromTransactionObject(JSON.parse(JSON.stringify(transaction)), chainId))
+    console.log(JSON.stringify(transaction))
+
+    const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
+
+    await safe.propose(txHash);
+    await safe.approve(txHash);
+    const receipt = await safe.signAndBroadcastTransaction(transaction, chainId)
+    console.log(receipt)
+
+    /** 2. Send eth from safe to someone **/
+    const erc20Address = '0x...'; // Replace with the ERC20 contract address
+    const amountOfTokens = '100'; // The amount of tokens to transfer
+    const tokenDecimals = 18; // Number of decimals the token uses
+    const erc20ReceiverAddress = '0x...'; // Replace with the receiver's address
+
+    const erc20Transaction = await safe.prepareERC20Transfer(
+        erc20Address,
+        erc20ReceiverAddress,
+        amountOfTokens,
+        tokenDecimals
+    );
+    const txHash2 = safe.getEthTransactionHashFromTransactionObject(erc20Transaction, chainId);
+    await safe.propose(txHash2);
+    await safe.approve(txHash2);
+    const receipt2 = await safe.signAndBroadcastTransaction(erc20Transaction, chainId)
+    console.log(receipt2)
+
+    /** 3. Interact with a smart contract, giving an ERC20 as an example (even though we have a concrete function for this) **/
+    const contractAddress = '0x...'; // Replace with the ERC20 contract address
+    const contractABI: any[] = [/* ... ERC20 contract ABI ... */];
+    const receiverAddress = '0x...'; // Replace with the receiver's address
+    const tokenAmountInSmallestUnit = '1000000000000000000'; // The amo
+
+    const methodName = 'transfer';
+    const methodArgs = [receiverAddress, tokenAmountInSmallestUnit];
+
+    // The receiver for the transaction is the contract itself, and the amount of ETH to send is '0'
+    const transaction2 = await safe.prepareSmartContractEthTransaction(
+        contractAddress,
+        contractABI,
+        methodName,
+        methodArgs,
+        contractAddress, // The contract address itself is the receiver of the transaction
+        '0' // No Ether is being sent, just the ERC20 token
+    );
+    const txHash3 = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
+    await safe.propose(txHash3);
+    await safe.approve(txHash3);
+    const receipt3 = await safe.signAndBroadcastTransaction(transaction2, chainId)
+    console.log(receipt3)
 }
 
 function App() {
-  const { isConnected, principal } = useConnect();
+  const { isConnected } = useConnect();
   const [canister] = useCanister("blend_safe_backend");
 
   return (
     <MainLayout title={"Blendsafe"} description={""}>
       {isConnected ? (
-        <a onClick={() => blendSafeSample(canister, principal)}>sample()</a>
+        <a onClick={() => blendSafeSample(canister)}>sample()</a>
       ) : null}
       <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">
         {isConnected ? <Welcome /> : <ConnectWallet />}
