@@ -59,6 +59,13 @@ class BlendSafe {
         }
     }
 
+    async sign(txHash: string): Promise<void> {
+        const result = await this.canister.sign(this.walletId, txHash);
+        if (result.Err) {
+            throw new Error(result.Err);
+        }
+    }
+
     async addSigner(principal: Principal): Promise<void> {
         const result = await this.canister.add_signer(this.walletId, principal);
         if (result.Err) {
@@ -189,7 +196,7 @@ class BlendSafe {
        const tx = new Transaction(transaction, { chain: chainId });
 
         // Hash the transaction and send it to the signing service
-        const result = await this.canister.sign(this.walletId, tx.hash(false).toString('hex'));
+        const result = await this.sign(this.walletId, tx.hash(false).toString('hex'));
         if (result.Err) {
             throw new Error(result.Err);
         }
