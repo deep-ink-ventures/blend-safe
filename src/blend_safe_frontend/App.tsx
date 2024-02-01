@@ -10,6 +10,8 @@ import { MainLayout } from "./layouts";
 import BlendSafe  from "./blend_safe";
 import { useCanister } from "@connect2ic/react"
 import 'react-toastify/dist/ReactToastify.css';
+import { LoadingPlaceholder } from "./components";
+import Spinner from "./svg/components/Spinner";
 
 
 async function blendSafeSample(canister: any) {
@@ -77,17 +79,22 @@ async function blendSafeSample(canister: any) {
 }
 
 function App() {
-  const { isConnected } = useConnect();
+  const { isConnected, isConnecting, isInitializing } = useConnect();
   const [canister] = useCanister("blend_safe_backend");
 
   return (
     <MainLayout title={"Blendsafe"} description={""}>
-      {isConnected ? (
-        <a onClick={() => blendSafeSample(canister)}>sample()</a>
-      ) : null}
-      <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">
-        {isConnected ? <Welcome /> : <ConnectWallet />}
-      </div>
+      {(isConnecting || isInitializing) &&  <LoadingPlaceholder />}
+      {!isConnecting && !isInitializing && (
+        <>
+          {isConnected ? (
+            <a onClick={() => blendSafeSample(canister)}>sample()</a>
+          ) : null}
+          <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">
+            {isConnected ? <Welcome /> : <ConnectWallet />}
+          </div>
+        </>
+      )}
       <ConnectDialog />
     </MainLayout>
   );

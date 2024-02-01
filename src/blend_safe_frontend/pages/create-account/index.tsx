@@ -36,7 +36,7 @@ const CreateAccount = () => {
   });
   const { getValues, watch } = formMethods;
 
-  const customId = watch('id');
+  const customId = watch("id");
 
   const createWallet = usePromise({
     promiseFunction: async (formData: CreateAccountFormValues) => {
@@ -56,12 +56,6 @@ const CreateAccount = () => {
           ],
           !!formData.threshold ? Number(formData.threshold) : 1
         );
-        const rawStoredCustomIds = localStorage.getItem("storedCustomIds");
-        const storedCustomIds = JSON.parse(rawStoredCustomIds || "{}");
-        const newArray = Array.isArray(storedCustomIds)
-          ? [...storedCustomIds, formData.id]
-          : [formData.id];
-        localStorage.setItem("storedCustomIds", JSON.stringify(newArray));
         setStep(3);
       } catch (ex) {
         toast.error(ex.toString());

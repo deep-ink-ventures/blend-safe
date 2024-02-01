@@ -8,6 +8,8 @@ import BlendSafe from "../blend_safe";
 import { usePromise } from "../hooks/usePromise";
 import Spinner from "../svg/components/Spinner";
 import SelectAccount from "./SelectAccount";
+import { Principal } from "@dfinity/principal";
+import { LoadingPlaceholder } from "./LoadingPlaceholder";
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -16,13 +18,21 @@ const Welcome = () => {
 
   const [customIds, setCustomIds] = useState([]);
 
+  const safe = new BlendSafe(canister as any);
+
+
+  const getWalletsForPrincipal = usePromise({
+    promiseFunction: async (principal: any) => {
+      const principalFromText = Principal.fromText(principal);
+      const safe = new BlendSafe(canister as any);
+      const response = await safe.getWalletsForPrincipal(principalFromText);
+      return response;
+    },
+  });
+ 
   useEffect(() => {
-    const storedCustomIds = localStorage.getItem("storedCustomIds");
-    if (storedCustomIds) {
-      // Parse the stored string and update the state
-      setCustomIds(JSON.parse(storedCustomIds));
-    }
-  }, []);
+    getWalletsForPrincipal.call(principal)
+  }, [principal]);
 
   const handleCreateNewAccount = () => {
     navigate("/account/create");
@@ -61,7 +71,10 @@ const Welcome = () => {
             Create New Account
           </button>
         </div>
-        <SelectAccount wallets={customIds} walletAddress={principal} />
+        {
+          getWalletsForPrincipal.pending && <LoadingPlaceholder />
+        }
+        <SelectAccount wallets={getWalletsForPrincipal.value} walletAddress={principal} />
       </div>
     </div>
   );
