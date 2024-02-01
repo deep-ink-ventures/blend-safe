@@ -26,6 +26,7 @@ const WALLET_MSG_ALREADY_QUEUED_ERROR: &str = "WalletMsgAlreadyQueued";
 const WALLET_INVALID_SIGNATURE_ERROR: &str = "WalletInvalidSignature";
 const WALLET_CANNOT_SIGN_ERROR: &str = "WalletCannotSign";
 const WALLET_SIGNERS_NOT_MATCH_THRESHOLD: &str = "WalletSignersNotMatchThreshold";
+const METADATA_NOT_FOUND: &str = "MetadataNotFound";
 
 
 /// Initializes the module with environment-specific configurations.
@@ -433,5 +434,39 @@ fn get_wallets_for_principal(principal: Principal) -> Vec<String> {
            .get(&principal)
            .cloned()
            .unwrap_or_default()
+    })
+}
+
+/// Add metadata to a message in the wallet.
+///
+/// * `message` - The message as a `Vec<u8>`.
+/// * `metadata` - The metadata as a `String`.
+/// * `caller` - The `Principal` of the caller.
+///
+/// Returns `Result<(), String>` indicating success or the type of failure.
+#[update]
+fn add_metadata(wallet_id: String, msg: String, metadata: String) -> Result<(), String> {
+    let msg = hex::decode(msg).map_err(|_| "InvalidMessage".to_string())?;
+    WALLETS.with(|wallets| {
+        wallets.borrow_mut().get_mut(&wallet_id)
+            .ok_or(WALLET_NOT_FOUND_ERROR.to_string())?
+            .add_metadata(msg, metadata, caller())
+    })
+}
+
+/// Get the metadata associated with a message in the wallet.
+///
+/// * `message` - The message as a `Vec<u8>`.
+///
+/// Returns `Option<&String>` containing the metadata if it exists.
+#[query]
+fn get_metadata(wallet_id: String, msg: String) -> Result<String, String> {
+    let msg = hex::decode(msg).map_err(|_| "InvalidMessage".to_string())?;
+    WALLETS.with(|wallets| {
+        wallets.borrow().get(&wallet_id)
+            .ok_or(WALLET_NOT_FOUND_ERROR.to_string())?
+            .get_metadata(msg)
+            .cloned()
+            .ok_or(METADATA_NOT_FOUND.to_string())
     })
 }

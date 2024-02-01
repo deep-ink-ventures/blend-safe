@@ -91,6 +91,21 @@ class BlendSafe {
         return await this.canister.get_wallets_for_principal(principal);
     }
 
+    async addMetadataToMessage(txHash: string, metadata: string): Promise<void> {
+        const result = await this.canister.add_metadata(this.walletId, txHash, metadata);
+        if (result.Err) {
+            throw new Error(result.Err);
+        }
+    }
+
+    async getMetadataForMessage(txHash: string): Promise<string> {
+        const result = await this.canister.get_metadata(this.walletId, txHash);
+        if (result.Err) {
+            throw new Error(result.Err);
+        }
+        return result.Ok;
+    }
+
     async getBasicEthTransactionObject(receiver: string): Promise< TransactionObject> {
         const wallet = await this.getEthAddress()
 

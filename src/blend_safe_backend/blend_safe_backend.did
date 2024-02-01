@@ -28,5 +28,8 @@ service : (text) -> {
     set_threshold: (text, nat8) -> (variant { Ok: text; Err: text });
 
     get_wallets_for_principal: (principal) -> (vec text);
+
+    add_metadata: (text, text, text) -> (variant { Ok; Err: text });
+    get_metadata: (text, text) -> (variant { Ok: text; Err: text });
 }
 

@@ -11,20 +11,21 @@ import BlendSafe  from "./blend_safe";
 import { useCanister } from "@connect2ic/react"
 import 'react-toastify/dist/ReactToastify.css';
 
+/** SAMPLES */
+const safeName = "CHPTEST1";
+const amountInEtherToSend = '0.000000000001'
+const chainId = 5 // goerli
+const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243"
 
-async function blendSafeSample(canister: any) {
-    const safe = new BlendSafe(canister,  "CHPTEST1");
+async function sendNativeToSomeone(canister: any) {
+    const safe = new BlendSafe(canister, safeName);
 
     /** 1. Send eth from safe to someone **/
 
-    const amountInEtherToSend = '0.000000000001'
-    const chainId = 5 // goerli
-    const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243"
-
     const transaction = await safe.prepareSendEthTransaction(receiver, amountInEtherToSend)
     console.log(safe.getEthTransactionHashFromTransactionObject(transaction, chainId))
-    console.log(safe.getEthTransactionHashFromTransactionObject(JSON.parse(JSON.stringify(transaction)), chainId))
     console.log(JSON.stringify(transaction))
+    console.log(await safe.getEthAddress())
 
     const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
 
@@ -32,6 +33,10 @@ async function blendSafeSample(canister: any) {
     await safe.approve(txHash);
     const receipt = await safe.signAndBroadcastTransaction(transaction, chainId)
     console.log(receipt)
+}
+
+async function sendERC20ToSomeone(canister: any) {
+    const safe = new BlendSafe(canister, safeName);
 
     /** 2. Send eth from safe to someone **/
     const erc20Address = '0x...'; // Replace with the ERC20 contract address
@@ -50,6 +55,10 @@ async function blendSafeSample(canister: any) {
     await safe.approve(txHash2);
     const receipt2 = await safe.signAndBroadcastTransaction(erc20Transaction, chainId)
     console.log(receipt2)
+}
+
+async function interactWithSmartContract(canister: any) {
+    const safe = new BlendSafe(canister, safeName);
 
     /** 3. Interact with a smart contract, giving an ERC20 as an example (even though we have a concrete function for this) **/
     const contractAddress = '0x...'; // Replace with the ERC20 contract address
@@ -83,7 +92,7 @@ function App() {
   return (
     <MainLayout title={"Blendsafe"} description={""}>
       {isConnected ? (
-        <a onClick={() => blendSafeSample(canister)}>sample()</a>
+        <a onClick={() => sendNativeToSomeone(canister)}>sample()</a>
       ) : null}
       <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">
         {isConnected ? <Welcome /> : <ConnectWallet />}

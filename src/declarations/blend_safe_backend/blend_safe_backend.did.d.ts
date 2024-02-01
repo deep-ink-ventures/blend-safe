@@ -8,6 +8,11 @@ export interface Wallet {
   'message_queue' : Array<[Uint8Array | number[], Array<Principal>]>,
 }
 export interface _SERVICE {
+  'add_metadata' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
   'add_signer' : ActorMethod<
     [string, Principal],
     { 'Ok' : string } |
@@ -33,6 +38,11 @@ export interface _SERVICE {
   'get_messages_with_signers' : ActorMethod<
     [string],
     { 'Ok' : Array<[string, Array<Principal>]> } |
+      { 'Err' : string }
+  >,
+  'get_metadata' : ActorMethod<
+    [string, string],
+    { 'Ok' : string } |
       { 'Err' : string }
   >,
   'get_proposed_messages' : ActorMethod<
