@@ -2,12 +2,13 @@ import { useCanister, useConnect } from "@connect2ic/react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import React, { useEffect, useMemo, useState } from "react";
-import { IoMdAdd } from "react-icons/io";
-import { useParams } from "react-router-dom";
+import { IoMdAdd, IoMdSettings } from "react-icons/io";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import BlendSafe from "../../blend_safe";
 import { Avatar, LoadingPlaceholder, Sidebar } from "../../components";
 import ImportTransactionModal from "../../components/ImportTransactionModal";
+import Settings from "../../components/Settings";
 import Transactions from "../../components/Transactions";
 import useCopyToClipboard from "../../hooks/useCopyToClipboard";
 import { usePromise } from "../../hooks/usePromise";
@@ -18,16 +19,17 @@ import SwitchIcon from "../../svg/components/Switch";
 import CopyIcon from "../../svg/copy.svg";
 import { truncateMiddle } from "../../utils";
 
-type AccountTabs = "Dashboard" | "Transactions";
+type AccountTabs = "Dashboard" | "Transactions" | "Settings";
 
 const Account = () => {
   const params = useParams<{ address: string }>();
   const [canister] = useCanister("blend_safe_backend");
-  const { isConnected, principal } = useConnect();
+  const { principal } = useConnect();
+  const navigate = useNavigate();
 
   const [isImportXdrVisible, setIsImportXdrVisible] = useState(false);
 
-  const address = params?.address ?? '';
+  const address = params?.address ?? "";
 
   const [currentTab, setCurrentTab] = useState<AccountTabs>("Transactions");
 
@@ -37,6 +39,9 @@ const Account = () => {
     promiseFunction: async () => {
       const safe = new BlendSafe(canister as any, address);
       const response = await safe.getWallet();
+      if (!response?.[0]) {
+        navigate("/");
+      }
       return response?.[0];
     },
   });
@@ -62,16 +67,27 @@ const Account = () => {
       {
         icon: <SwitchIcon className="h-4 w-4 shrink-0 fill-black" />,
         label: "Transactions",
-        badgeCount: getWallet.value?.message_queue?.length || 0,
+        badgeCount: getMessagesWithSigners?.value?.length || 0,
+      },
+      {
+        icon: <IoMdSettings className="h-4 w-4 shrink-0 fill-black" />,
+        label: "Settings",
       },
     ],
-    [getWallet.value?.message_queue]
+    [getMessagesWithSigners.value?.length]
   );
+
+  const refreshTransactions = () => {
+    if (principal) {
+      getMessagesWithSigners.call();
+      getWallet.call();
+    }
+  };
 
   useEffect(() => {
     if (principal) {
-      getWallet.call();
       getMessagesWithSigners.call();
+      getWallet.call()
     }
   }, [principal]);
 
@@ -82,39 +98,34 @@ const Account = () => {
           <Sidebar>
             <Sidebar.Content>
               <Avatar src={AvatarImage} />
-              {getWallet.pending && <LoadingPlaceholder />}
-              {address && getWallet.value && !getWallet.pending && (
-                <>
-                  <div className="mx-auto flex w-1/2">
-                    <span className="hidden" ref={textRef}>
-                      {address}
-                    </span>
-                    <div className="inline-block grow truncate text-center">
-                      {truncateMiddle(address, 5, 3)}
-                    </div>
-                    <Image
-                      src={CopyIcon}
-                      height={15}
-                      width={15}
-                      alt="copy"
-                      className="cursor-pointer"
-                      onClick={() => {
-                        copyToClipboard();
-                        toast.success(
-                          `${truncateMiddle(address)} copied to clipboard`
-                        );
-                      }}
-                    />
-                  </div>
-                  <div className="flex hidden w-full items-center rounded-lg bg-base-300 p-4">
-                    <div className="flex-col">
-                      <div className="text-xs">Owned Tokens</div>
-                      <div className="font-semibold">10,000</div>
-                    </div>
-                    <Chevron className="ml-auto h-4 w-4 cursor-pointer fill-black" />
-                  </div>
-                </>
-              )}
+              <div className="mx-auto flex w-1/2">
+                <span className="hidden" ref={textRef}>
+                  {address}
+                </span>
+                <div className="inline-block grow truncate text-center">
+                  {truncateMiddle(address, 5, 3)}
+                </div>
+                <Image
+                  src={CopyIcon}
+                  height={15}
+                  width={15}
+                  alt="copy"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    copyToClipboard();
+                    toast.success(
+                      `${truncateMiddle(address)} copied to clipboard`
+                    );
+                  }}
+                />
+              </div>
+              <div className="flex hidden w-full items-center rounded-lg bg-base-300 p-4">
+                <div className="flex-col">
+                  <div className="text-xs">Owned Tokens</div>
+                  <div className="font-semibold">10,000</div>
+                </div>
+                <Chevron className="ml-auto h-4 w-4 cursor-pointer fill-black" />
+              </div>
               {/* {!currentWalletAccount?.publicKey && (
                 <WalletConnect text='Connect your wallet' />
               )} */}
@@ -145,6 +156,13 @@ const Account = () => {
               walletCustomId={address}
               address={address?.toString()}
               getMessagesWithSigners={getMessagesWithSigners}
+            />
+          )}
+          {currentTab === "Settings" && (
+            <Settings
+              address={address?.toString()}
+              refreshTransactions={refreshTransactions}
+              wallet={getWallet.value}
             />
           )}
         </div>
