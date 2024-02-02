@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use candid::{CandidType, Principal};
 use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, PartialEq)]
 pub enum WalletError {
@@ -13,7 +13,6 @@ pub enum WalletError {
     /// Error when there are not enough signers to meet the threshold.
     NotEnoughSigners,
 }
-
 
 /// A trait defining the behaviors of a MultiSignature Wallet.
 pub trait MultiSignatureWallet {
@@ -88,16 +87,39 @@ pub trait MultiSignatureWallet {
     ///
     /// Returns a `Vec<(Vec<u8>, Vec<Principal>)>` containing the messages that have been proposed with their signers.
     fn get_messages_with_signers(&self) -> Vec<(Vec<u8>, Vec<Principal>)>;
+
+    /// Add metadata to a message in the wallet.
+    ///
+    /// * `message` - The message as a `Vec<u8>`.
+    /// * `metadata` - The metadata as a `String`.
+    /// * `caller` - The `Principal` of the caller.
+    ///
+    /// Returns `Result<(), String>` indicating success or the type of failure.
+    fn add_metadata(
+        &mut self,
+        message: Vec<u8>,
+        metadata: String,
+        caller: Principal,
+    ) -> Result<(), String>;
+
+    /// Get the metadata associated with a message in the wallet.
+    ///
+    /// * `message` - The message as a `Vec<u8>`.
+    ///
+    /// Returns `Option<&String>` containing the metadata if it exists.
+    fn get_metadata(&self, message: Vec<u8>) -> Option<&String>;
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Wallet {
-     /// A set of signers for the wallet, represented by their `Principal`.
+    /// A set of signers for the wallet, represented by their `Principal`.
     signers: HashSet<Principal>,
     /// The threshold number of signers required for certain actions.
     threshold: u8,
     /// A map tracking messages and the list of signers who have already signed them.
     message_queue: HashMap<Vec<u8>, Vec<Principal>>,
+    /// A map tracking messages and their metadata.
+    metadata: HashMap<Vec<u8>, String>,
 }
 
 impl Default for Wallet {
@@ -106,6 +128,7 @@ impl Default for Wallet {
             signers: HashSet::new(),
             threshold: 0,
             message_queue: HashMap::new(),
+            metadata: HashMap::new(),
         }
     }
 }
@@ -196,6 +219,28 @@ impl MultiSignatureWallet for Wallet {
             .map(|(msg, signers)| (msg.clone(), signers.clone()))
             .collect()
     }
+
+    fn add_metadata(
+        &mut self,
+        message: Vec<u8>,
+        metadata: String,
+        caller: Principal,
+    ) -> Result<(), String> {
+        if self.signers.contains(&caller) && self.message_queue.contains_key(&message) {
+            if self.metadata.contains_key(&message) {
+                Err("Metadata already exists for this message".to_string())
+            } else {
+                self.metadata.insert(message, metadata);
+                Ok(())
+            }
+        } else {
+            Err("Cannot add metadata".to_string())
+        }
+    }
+
+    fn get_metadata(&self, message: Vec<u8>) -> Option<&String> {
+        self.metadata.get(&message)
+    }
 }
 
 #[cfg(test)]
@@ -242,7 +287,10 @@ mod tests {
         wallet.add_signer(Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap());
         let _ = wallet.set_default_threshold(1);
         assert_eq!(wallet.get_default_threshold(), 1);
-        assert_eq!(wallet.set_default_threshold(2), Err(WalletError::NotEnoughSigners));
+        assert_eq!(
+            wallet.set_default_threshold(2),
+            Err(WalletError::NotEnoughSigners)
+        );
     }
 
     #[test]
@@ -293,7 +341,6 @@ mod tests {
         wallet.add_signer(signer.clone());
         let _ = wallet.set_default_threshold(1);
 
-
         let msg = vec![1, 2, 3];
         let _ = wallet.propose_message(signer.clone(), msg.clone());
 
@@ -317,7 +364,7 @@ mod tests {
         assert_eq!(can_sign, false);
     }
 
-     #[test]
+    #[test]
     fn test_approve_valid_message() {
         let mut wallet = Wallet::default();
         let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
@@ -356,7 +403,9 @@ mod tests {
         wallet.add_signer(signer1.clone());
 
         let msg = vec![1, 2, 3];
-        wallet.propose_message(signer1.clone(), msg.clone()).unwrap();
+        wallet
+            .propose_message(signer1.clone(), msg.clone())
+            .unwrap();
 
         let result = wallet.approve(msg.clone(), signer2);
 
@@ -386,10 +435,16 @@ mod tests {
         let msg1 = vec![1, 2, 3];
         let msg2 = vec![4, 5, 6];
         let msg3 = vec![7, 8, 9];
-        wallet.propose_message(signer1.clone(), msg1.clone()).unwrap();
-        wallet.propose_message(signer2.clone(), msg2.clone()).unwrap();
-        wallet.propose_message(signer2.clone(), msg3.clone()).unwrap();
-        
+        wallet
+            .propose_message(signer1.clone(), msg1.clone())
+            .unwrap();
+        wallet
+            .propose_message(signer2.clone(), msg2.clone())
+            .unwrap();
+        wallet
+            .propose_message(signer2.clone(), msg3.clone())
+            .unwrap();
+
         wallet.approve(msg1.clone(), signer1).unwrap();
         wallet.approve(msg2.clone(), signer2).unwrap();
 
@@ -409,5 +464,105 @@ mod tests {
         assert!(all_messages_with_signers.contains(&(msg1.clone(), vec![signer1.clone()])));
         assert!(all_messages_with_signers.contains(&(msg2.clone(), vec![signer2.clone()])));
         assert!(all_messages_with_signers.contains(&(msg3.clone(), vec![])));
+    }
+
+    #[test]
+    fn test_add_metadata_valid() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+        let _ = wallet.propose_message(signer.clone(), msg.clone());
+
+        let result = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
+
+        assert!(result.is_ok());
+        assert_eq!(
+            wallet.get_metadata(msg.clone()),
+            Some(&"metadata".to_string())
+        );
+    }
+
+    #[test]
+    fn test_add_metadata_invalid_message() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+
+        let result = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
+
+        assert_eq!(result.err(), Some("Cannot add metadata".to_string()));
+    }
+
+    #[test]
+    fn test_add_metadata_invalid_signer() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        let invalid_signer = Principal::from_str("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+        let _ = wallet.propose_message(signer.clone(), msg.clone());
+
+        let result =
+            wallet.add_metadata(msg.clone(), "metadata".to_string(), invalid_signer.clone());
+
+        assert_eq!(result.err(), Some("Cannot add metadata".to_string()));
+    }
+
+    #[test]
+    fn test_get_metadata_exists() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+        let _ = wallet.propose_message(signer.clone(), msg.clone());
+        let _ = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
+
+        let result = wallet.get_metadata(msg.clone());
+
+        assert_eq!(result, Some(&"metadata".to_string()));
+    }
+
+    #[test]
+    fn test_get_metadata_not_exists() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+        let _ = wallet.propose_message(signer.clone(), msg.clone());
+
+        let result = wallet.get_metadata(msg.clone());
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_add_metadata_only_once() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+        let _ = wallet.propose_message(signer.clone(), msg.clone());
+
+        let result = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
+        assert!(result.is_ok());
+        assert_eq!(
+            wallet.get_metadata(msg.clone()),
+            Some(&"metadata".to_string())
+        );
+
+        // Try to add metadata again to the same message
+        let result = wallet.add_metadata(msg.clone(), "new metadata".to_string(), signer.clone());
+        assert_eq!(
+            result.err(),
+            Some("Metadata already exists for this message".to_string())
+        );
     }
 }

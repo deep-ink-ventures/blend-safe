@@ -155,3 +155,25 @@ def test_principal_wallets_map_update():
     # Check if the wallet is no longer associated with the removed signer
     wallets_for_removed_signer = safe.get_wallets_for_principal(new_signer)[0]
     assert wallet_id not in wallets_for_removed_signer
+
+
+def test_metadata_lifecycle():
+    wallet_id = get_wallet_id()
+    safe = create_safe()
+    assert_ok(safe.create_wallet(wallet_id, get_default_principals(), 1))
+
+    msg = os.urandom(32).hex()
+    metadata = "test metadata"
+
+    safe.propose(wallet_id, msg)
+
+    # Add metadata to a message
+    assert_ok(safe.add_metadata(wallet_id, msg, metadata))
+
+    # Get metadata for the message
+    result = safe.get_metadata(wallet_id, msg)
+    assert result[0]['Ok'] == metadata
+
+    # Try to add metadata again to the same message
+    result = safe.add_metadata(wallet_id, msg, "new metadata")
+    assert result[0]['Err'] == "Metadata already exists for this message"
