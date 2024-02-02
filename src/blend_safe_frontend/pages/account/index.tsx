@@ -1,4 +1,5 @@
 import { useCanister, useConnect } from "@connect2ic/react";
+import cn from "classnames";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import React, { useEffect, useMemo, useState } from "react";
@@ -6,7 +7,7 @@ import { IoMdAdd, IoMdSettings } from "react-icons/io";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import BlendSafe from "../../blend_safe";
-import { Avatar, LoadingPlaceholder, Sidebar } from "../../components";
+import { Avatar, Sidebar } from "../../components";
 import ImportTransactionModal from "../../components/ImportTransactionModal";
 import Settings from "../../components/Settings";
 import Transactions from "../../components/Transactions";
@@ -28,6 +29,8 @@ const Account = () => {
   const navigate = useNavigate();
 
   const [isImportXdrVisible, setIsImportXdrVisible] = useState(false);
+  const [isCreationTxOptionsMenuVisible, setIsCreationTxOptionsMenuVisible] =
+    useState(false);
 
   const address = params?.address ?? "";
 
@@ -43,6 +46,14 @@ const Account = () => {
         navigate("/");
       }
       return response?.[0];
+    },
+  });
+
+  const getEthAddress = usePromise({
+    promiseFunction: async () => {
+      const safe = new BlendSafe(canister as any, address);
+      const response = await safe.getEthAddress();
+      return response;
     },
   });
 
@@ -87,9 +98,23 @@ const Account = () => {
   useEffect(() => {
     if (principal) {
       getMessagesWithSigners.call();
-      getWallet.call()
+      getWallet.call();
+      getEthAddress.call();
     }
   }, [principal]);
+
+  const createTxOptions = [
+    {
+      label: "Propose Raw Hash",
+      onClick: () => setIsImportXdrVisible(true),
+    },
+    {
+      label: "Propose Send Native Token",
+    },
+    {
+      label: "Propose Send ERC20 Token",
+    },
+  ];
 
   return (
     <MainLayout title="Blendsafe" description="">
@@ -98,27 +123,33 @@ const Account = () => {
           <Sidebar>
             <Sidebar.Content>
               <Avatar src={AvatarImage} />
-              <div className="mx-auto flex w-1/2">
-                <span className="hidden" ref={textRef}>
-                  {address}
-                </span>
-                <div className="inline-block grow truncate text-center">
-                  {truncateMiddle(address, 5, 3)}
-                </div>
-                <Image
-                  src={CopyIcon}
-                  height={15}
-                  width={15}
-                  alt="copy"
-                  className="cursor-pointer"
-                  onClick={() => {
-                    copyToClipboard();
-                    toast.success(
-                      `${truncateMiddle(address)} copied to clipboard`
-                    );
-                  }}
-                />
-              </div>
+              {getEthAddress.value && (
+                <>
+                  <div className="mx-auto flex w-1/2">
+                    <span className="hidden" ref={textRef}>
+                      {getEthAddress.value}
+                    </span>
+                    <div className="inline-block grow truncate text-center">
+                      {truncateMiddle(getEthAddress.value, 5, 3)}
+                    </div>
+                    <Image
+                      src={CopyIcon}
+                      height={15}
+                      width={15}
+                      alt="copy"
+                      className="cursor-pointer"
+                      onClick={() => {
+                        copyToClipboard();
+                        toast.success(
+                          `${truncateMiddle(
+                            getEthAddress.value
+                          )} copied to clipboard`
+                        );
+                      }}
+                    />
+                  </div>
+                </>
+              )}
               <div className="flex hidden w-full items-center rounded-lg bg-base-300 p-4">
                 <div className="flex-col">
                   <div className="text-xs">Owned Tokens</div>
@@ -167,13 +198,52 @@ const Account = () => {
           )}
         </div>
         <div className="fixed bottom-[2%] right-[2%]">
-          <div className="flex  h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary transition ease-in-out hover:rotate-180">
-            <button
-              onClick={() => setIsImportXdrVisible(true)}
-              className="text-white"
+          <div className="relative">
+            <div
+              className={cn(
+                "absolute right-0 mb-4 overflow-hidden rounded-lg bg-white opacity-0 shadow-sm transition-all ease-in-out",
+                {
+                  "opacity-0": !isCreationTxOptionsMenuVisible,
+                  "opacity-100": isCreationTxOptionsMenuVisible,
+                }
+              )}
+              style={{
+                top: `-${createTxOptions.length * 100 - 10}%`,
+              }}
             >
-              <IoMdAdd className="text-2xl " />
-            </button>
+              {createTxOptions.map((option, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "cursor-pointer items-center whitespace-nowrap px-4 py-2 transition-all duration-300",
+                    {
+                      "opacity-50": !option.onClick,
+                      "hover:bg-base-300": !!option.onClick,
+                    }
+                  )}
+                  onClick={() => {
+                    if (option.onClick) {
+                      option.onClick();
+                    }
+                    setIsCreationTxOptionsMenuVisible(false);
+                  }}
+                >
+                  {option.label}
+                </div>
+              ))}
+            </div>
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-primary transition ease-in-out hover:rotate-180">
+              <button
+                onClick={() =>
+                  setIsCreationTxOptionsMenuVisible(
+                    !isCreationTxOptionsMenuVisible
+                  )
+                }
+                className="text-white"
+              >
+                <IoMdAdd className="text-2xl " />
+              </button>
+            </div>
           </div>
         </div>
         <ImportTransactionModal
