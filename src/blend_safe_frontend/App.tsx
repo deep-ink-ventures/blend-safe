@@ -14,62 +14,54 @@ import { MainLayout } from "./layouts";
 
 /** SAMPLES */
 const safeName = "CHPTEST1";
-const amountInEtherToSend = "0.000000000001";
 const chainId = 5; // goerli
 const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243";
 
-async function sendNativeToSomeone(canister: any) {
-  const safe = new BlendSafe(canister, safeName);
-
-  /** 1. Send eth from safe to someone **/
-
-  const transaction = await safe.prepareSendEthTransaction(
-    receiver,
-    amountInEtherToSend
-  );
-  console.log(
-    safe.getEthTransactionHashFromTransactionObject(transaction, chainId)
-  );
-  console.log(JSON.stringify(transaction));
-  console.log(await safe.getEthAddress());
-
-  const txHash = safe.getEthTransactionHashFromTransactionObject(
-    transaction,
-    chainId
-  );
+async function flow(safe:any, transaction: any) {
+  const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId)
+  const txJson = JSON.stringify(transaction);
 
   await safe.propose(txHash);
+  await safe.addMetadataToMessage(txHash, txJson);
+
+  const txJsonReturned = JSON.parse(await safe.getMetadataForMessage(txHash));
+  console.log(txHash == safe.getEthTransactionHashFromTransactionObject(txJsonReturned, chainId));
+  console.log(safe.decodeTransaction(txJsonReturned))
+
   await safe.approve(txHash);
   const receipt = await safe.signAndBroadcastTransaction(transaction, chainId);
   console.log(receipt);
 }
 
+async function sendNativeToSomeone(canister: any) {
+  const safe = new BlendSafe(canister, safeName);
+  const amountInEtherToSend = "0.000000000001";
+
+  /** 1. Send eth from safe to someone **/
+  const transaction = await safe.prepareSendEthTransaction(
+    receiver,
+    amountInEtherToSend
+  );
+
+  await flow(safe, transaction);
+}
+
 async function sendERC20ToSomeone(canister: any) {
   const safe = new BlendSafe(canister, safeName);
 
-  /** 2. Send eth from safe to someone **/
-  const erc20Address = "0x..."; // Replace with the ERC20 contract address
-  const amountOfTokens = "100"; // The amount of tokens to transfer
-  const tokenDecimals = 18; // Number of decimals the token uses
-  const erc20ReceiverAddress = "0x..."; // Replace with the receiver's address
+  /** 2. Send erc20 from safe to someone **/
+  const erc20Address = "0xBA62BCfcAaFc6622853cca2BE6Ac7d845BC0f2Dc";
+  const amountOfTokens = "10";
+  const tokenDecimals = 18;
 
-  const erc20Transaction = await safe.prepareERC20Transfer(
+  const transaction = await safe.prepareERC20Transfer(
     erc20Address,
-    erc20ReceiverAddress,
+    receiver,
     amountOfTokens,
     tokenDecimals
   );
-  const txHash2 = safe.getEthTransactionHashFromTransactionObject(
-    erc20Transaction,
-    chainId
-  );
-  await safe.propose(txHash2);
-  await safe.approve(txHash2);
-  const receipt2 = await safe.signAndBroadcastTransaction(
-    erc20Transaction,
-    chainId
-  );
-  console.log(receipt2);
+
+  await flow(safe, transaction);
 }
 
 function App() {

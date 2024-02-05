@@ -226,16 +226,17 @@ impl MultiSignatureWallet for Wallet {
         metadata: String,
         caller: Principal,
     ) -> Result<(), String> {
-        if self.signers.contains(&caller) && self.message_queue.contains_key(&message) {
-            if self.metadata.contains_key(&message) {
-                Err("Metadata already exists for this message".to_string())
-            } else {
-                self.metadata.insert(message, metadata);
-                Ok(())
-            }
-        } else {
-            Err("Cannot add metadata".to_string())
+        if !self.signers.contains(&caller) {
+            return Err("Cannot add metadata: No signer.".to_string());
         }
+        if !self.message_queue.contains_key(&message) {
+            return Err("Cannot add metadata: Message not found.".to_string());
+        }
+        if self.metadata.contains_key(&message) {
+            return Err("Metadata already exists for this message".to_string())
+        }
+        self.metadata.insert(message, metadata);
+        Ok(())
     }
 
     fn get_metadata(&self, message: Vec<u8>) -> Option<&String> {
@@ -494,7 +495,7 @@ mod tests {
 
         let result = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
 
-        assert_eq!(result.err(), Some("Cannot add metadata".to_string()));
+        assert_eq!(result.err(), Some("Cannot add metadata: Message not found.".to_string()));
     }
 
     #[test]
@@ -510,7 +511,7 @@ mod tests {
         let result =
             wallet.add_metadata(msg.clone(), "metadata".to_string(), invalid_signer.clone());
 
-        assert_eq!(result.err(), Some("Cannot add metadata".to_string()));
+        assert_eq!(result.err(), Some("Cannot add metadata: No signer.".to_string()));
     }
 
     #[test]

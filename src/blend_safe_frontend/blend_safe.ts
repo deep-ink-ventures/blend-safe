@@ -12,6 +12,12 @@ interface TransactionObject {
     data?: string; // encoded ABI, optional as well
 }
 
+interface GasEstimator {
+    from: string;
+    to: string;
+    data?: string;
+}
+
 // todo: move to config
 export const PROVIDER =  "https://goerli.infura.io/v3/1aa49601abc34fce881a9934647b806a"
 
@@ -59,7 +65,7 @@ class BlendSafe {
         }
     }
 
-    async sign(txHash: string): Promise<void> {
+    async sign(txHash: string): Promise<String> {
         const result = await this.canister.sign(this.walletId, txHash);
         if (result.Err) {
             throw new Error(result.Err);
@@ -107,15 +113,20 @@ class BlendSafe {
         return result.Ok;
     }
 
-    async getBasicEthTransactionObject(receiver: string): Promise< TransactionObject> {
+    async getBasicEthTransactionObject(receiver: string, data?: string): Promise< TransactionObject> {
         const wallet = await this.getEthAddress()
+        const nonce = await this.web3.eth.getTransactionCount(wallet);
 
-        const gasLimit = await this.web3.eth.estimateGas({
+        const gasEstimator: GasEstimator = {
             from: wallet,
             to: receiver,
-        });
+        }
+        if (data) {
+            gasEstimator.data = data;
+        }
+
+        const gasLimit = await this.web3.eth.estimateGas(gasEstimator);
         const gasPrice = await this.web3.eth.getGasPrice();
-        const nonce = await this.web3.eth.getTransactionCount(wallet);
 
        return {
             to: receiver,
@@ -189,7 +200,7 @@ class BlendSafe {
         const method = contract.methods[methodName](...methodArgs);
         const encodedABI = method.encodeABI();
 
-        const baseTransaction = await this.getBasicEthTransactionObject(receiver);
+        const baseTransaction = await this.getBasicEthTransactionObject(receiver, encodedABI);
 
         if (amountInEth) {
             const valueInWei = BigInt(this.web3.utils.toWei(amountInEth, 'ether'));
@@ -212,13 +223,7 @@ class BlendSafe {
         const tx = new Transaction(transaction, { chain: chainId });
 
         // Hash the transaction and send it to the signing service
-        const result = await this.sign(tx.hash(false).toString('hex'));
-        if (result.Err) {
-            throw new Error(result.Err);
-        }
-
-        // Decode the signature
-        const signatureEnc = result.Ok;
+        const signatureEnc = await this.sign(tx.hash(false).toString('hex'));
         const signature = Buffer.from(signatureEnc, 'hex');
 
         // Extract r, s, and calculate v
@@ -267,6 +272,18 @@ class BlendSafe {
             throw new Error(result.Err);
         }
         return result.Ok;
+    }
+
+    decodeTransaction(tx: TransactionObject) {
+        const decodedTx = {
+            to: tx.to,
+            gasPrice: this.web3.utils.fromWei(tx.gasPrice, 'gwei'),
+            gas: this.web3.utils.hexToNumber(tx.gas),
+            nonce: this.web3.utils.hexToNumber(tx.nonce),
+            value: tx.value ? this.web3.utils.fromWei(tx.value, 'ether') : undefined,
+            data: tx.data ? tx.data : undefined
+        };
+        return decodedTx;
     }
 
 }
