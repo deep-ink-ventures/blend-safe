@@ -470,3 +470,20 @@ fn get_metadata(wallet_id: String, msg: String) -> Result<String, String> {
             .ok_or(METADATA_NOT_FOUND.to_string())
     })
 }
+
+/// Proposes a message and adds metadata in one call.
+///
+/// # Arguments
+///
+/// * `wallet_id` - The wallet's unique identifier.
+/// * `msg` - The message to be proposed, in hexadecimal format.
+/// * `metadata` - The metadata to be added to the message.
+///
+/// # Returns
+///
+/// * `Result<(), String>` - Result indicating success or an error message.
+#[update]
+fn propose_with_metadata(wallet_id: String, msg: String, metadata: String) -> Result<(), String> {
+    propose(wallet_id.clone(), msg.clone())?;
+    add_metadata(wallet_id, msg, metadata)
+}

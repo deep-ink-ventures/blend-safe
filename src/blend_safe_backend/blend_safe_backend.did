@@ -31,5 +31,8 @@ service : (text) -> {
 
     add_metadata: (text, text, text) -> (variant { Ok; Err: text });
     get_metadata: (text, text) -> (variant { Ok: text; Err: text });
+
+    propose_with_metadata: (text, text, text) -> (variant { Ok; Err: text });
+
 }
 

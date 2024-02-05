@@ -177,3 +177,19 @@ def test_metadata_lifecycle():
     # Try to add metadata again to the same message
     result = safe.add_metadata(wallet_id, msg, "new metadata")
     assert result[0]['Err'] == "Metadata already exists for this message"
+
+
+def test_propose_with_metadata():
+    wallet_id = get_wallet_id()
+    safe = create_safe()
+    assert_ok(safe.create_wallet(wallet_id, get_default_principals(), 1))
+
+    msg = os.urandom(32).hex()
+    metadata = "test metadata"
+
+    # Propose a message with metadata
+    assert_ok(safe.propose_with_metadata(wallet_id, msg, metadata))
+
+    # Get metadata for the message
+    result = safe.get_metadata(wallet_id, msg)
+    assert result[0]['Ok'] == metadata

@@ -57,6 +57,11 @@ export interface _SERVICE {
     { 'Ok' : null } |
       { 'Err' : string }
   >,
+  'propose_with_metadata' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
   'remove_signer' : ActorMethod<
     [string, Principal],
     { 'Ok' : string } |

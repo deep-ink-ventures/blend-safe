@@ -51,7 +51,14 @@ class BlendSafe {
         return result.Ok;
     }
 
-    async propose(txHash: string): Promise<void> {
+    async proposeWithMetadata(txHash: string, metadata: string): Promise<void> {
+        const result = await this.canister.propose_with_metadata(this.walletId, txHash, metadata);
+        if (result.Err) {
+            throw new Error(result.Err);
+        }
+    }
+
+    async propose(txHash: string): Promise<voiid> {
         const result = await this.canister.propose(this.walletId, txHash);
         if (result.Err) {
             throw new Error(result.Err);
