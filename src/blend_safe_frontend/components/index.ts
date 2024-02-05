@@ -10,4 +10,5 @@ export * from './MembersAndConfirmations';
 export * from './Pagination';
 export * from './Sidebar';
 export * from './Timeline';
+export * from './Modal';
 export * from './UserTally';
