@@ -18,18 +18,22 @@ const chainId = 5; // goerli
 const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243";
 
 async function flow(safe:any, transaction: any) {
-  const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId)
-  const txJson = JSON.stringify(transaction);
+  const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
 
+
+  const metadata = {
+    transaction: transaction,
+    chainId: chainId,
+  }
   await safe.propose(txHash);
-  await safe.addMetadataToMessage(txHash, txJson);
+  await safe.addMetadataToMessage(txHash, JSON.stringify(metadata));
 
-  const txJsonReturned = JSON.parse(await safe.getMetadataForMessage(txHash));
-  console.log(txHash == safe.getEthTransactionHashFromTransactionObject(txJsonReturned, chainId));
-  console.log(safe.decodeTransaction(txJsonReturned))
+  const metadataReturned = JSON.parse(await safe.getMetadataForMessage(txHash));
+  console.log(txHash == safe.getEthTransactionHashFromTransactionObject(metadataReturned.transaction, metadataReturned.chainId));
+  console.log(safe.decodeTransaction(metadataReturned.transaction))
 
   await safe.approve(txHash);
-  const receipt = await safe.signAndBroadcastTransaction(transaction, chainId);
+  const receipt = await safe.signAndBroadcastTransaction(metadataReturned.transaction, metadataReturned.chainId);
   console.log(receipt);
 }
 
