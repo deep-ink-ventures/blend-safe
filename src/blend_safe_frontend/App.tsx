@@ -72,42 +72,6 @@ async function sendERC20ToSomeone(canister: any) {
   console.log(receipt2);
 }
 
-async function interactWithSmartContract(canister: any) {
-  const safe = new BlendSafe(canister, safeName);
-
-  /** 3. Interact with a smart contract, giving an ERC20 as an example (even though we have a concrete function for this) **/
-  const contractAddress = "0x..."; // Replace with the ERC20 contract address
-  const contractABI: any[] = [
-    /* ... ERC20 contract ABI ... */
-  ];
-  const receiverAddress = "0x..."; // Replace with the receiver's address
-  const tokenAmountInSmallestUnit = "1000000000000000000"; // The amo
-
-  const methodName = "transfer";
-  const methodArgs = [receiverAddress, tokenAmountInSmallestUnit];
-
-  // The receiver for the transaction is the contract itself, and the amount of ETH to send is '0'
-  const transaction2 = await safe.prepareSmartContractEthTransaction(
-    contractAddress,
-    contractABI,
-    methodName,
-    methodArgs,
-    contractAddress, // The contract address itself is the receiver of the transaction
-    "0" // No Ether is being sent, just the ERC20 token
-  );
-  const txHash3 = safe.getEthTransactionHashFromTransactionObject(
-    transaction,
-    chainId
-  );
-  await safe.propose(txHash3);
-  await safe.approve(txHash3);
-  const receipt3 = await safe.signAndBroadcastTransaction(
-    transaction2,
-    chainId
-  );
-  console.log(receipt3);
-}
-
 function App() {
   const { isConnected, isConnecting, isInitializing } = useConnect();
   const [canister] = useCanister("blend_safe_backend");
