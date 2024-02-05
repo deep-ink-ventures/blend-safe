@@ -7,6 +7,7 @@ import BlendSafe from "../blend_safe";
 import { usePromise } from "../hooks/usePromise";
 import Search from "../svg/components/Search";
 import { formatDateTime, truncateMiddle } from "../utils";
+import useCopyToClipboard from "../hooks/useCopyToClipboard";
 import {
   Accordion,
   EmptyPlaceholder,
@@ -14,7 +15,9 @@ import {
   Timeline,
   TransactionBadge,
   UserTally,
+  Modal
 } from "./index";
+import { IoMdCopy } from "react-icons/io";
 
 interface ITransactionsProps {
   address?: string;
@@ -76,9 +79,12 @@ const mockData = Array(5)
 const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransactionsProps) => {
   const [, setSearchTerm] = useState("");
   const [activeAccordion, setActiveAccordion] = useState<number | null>(null);
+  const [signTxHash, setSignTxHash] = useState<string | null>();
 
   const { principal } = useConnect();
   const [canister] = useCanister("blend_safe_backend");
+
+  const { textRef, copyToClipboard } = useCopyToClipboard<HTMLDivElement>();
 
   const getWallet = usePromise({
     promiseFunction: async () => {
@@ -110,6 +116,21 @@ const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransact
     },
   });
 
+  const signTransaction = usePromise({
+    promiseFunction: async (txnHash: string) => {
+      try {
+        const safe = new BlendSafe(canister as any, walletCustomId);
+        const response = await safe.sign(txnHash);
+        getMessagesWithSigners.call();
+        toast.success("Successfully signed a message");
+        setSignTxHash(txnHash);
+        return response;
+      } catch (ex) {
+        toast.error(ex.toString());
+      }
+    }
+  })
+
   const [pagination, setPagination] = useState({
     currentPage: 1,
     offset: 0,
@@ -123,16 +144,21 @@ const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransact
     await approveTransaction.call(transaction);
   };
 
+  const handleSignTransaction = async (transaction: string) => {
+    await signTransaction.call(transaction);
+  }
+
   const displayButtons = (status: any, txhash: string) => {
     switch (status) {
       case "EXECUTABLE":
         return (
           <div className="flex w-full justify-center">
             <button
-              className={cn("btn btn-primary min-w-[60%]", {
-                disabled: generateRandomNumber(0, 1) === 0,
+               className={cn("btn btn-primary flex-1", {
+                loading: signTransaction.pending,
               })}
-              disabled
+              disabled={signTransaction.pending}
+              onClick={() => handleSignTransaction(txhash)}
             >
               Sign
             </button>
@@ -317,6 +343,25 @@ const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransact
           }
         />
       </div> */}
+      <Modal isVisible={!!signTxHash} onClose={() => setSignTxHash(null)}>
+        <Modal.Header>Message Successfully signed</Modal.Header>
+
+        <div className="relative overflow-x-auto rounded-lg border border-gray-300 py-6 text-center">
+          <span className="hidden" ref={textRef}>
+            {`${signTxHash}`}
+          </span>
+          {truncateMiddle(`${signTxHash}`)}
+          <IoMdCopy
+            className="absolute right-1 top-1 cursor-pointer"
+            onClick={() => {
+              copyToClipboard();
+              toast.success(
+                `${truncateMiddle(`${signTxHash}`)} copied to clipboard`
+              );
+            }}
+          />
+        </div>
+      </Modal>
     </>
   );
 };
