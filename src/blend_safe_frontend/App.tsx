@@ -25,8 +25,7 @@ async function flow(safe:any, transaction: any) {
     transaction: transaction,
     chainId: chainId,
   }
-  await safe.propose(txHash);
-  await safe.addMetadataToMessage(txHash, JSON.stringify(metadata));
+  await safe.proposeWithMetadata(txHash, JSON.stringify(metadata)
 
   const metadataReturned = JSON.parse(await safe.getMetadataForMessage(txHash));
   console.log(txHash == safe.getEthTransactionHashFromTransactionObject(metadataReturned.transaction, metadataReturned.chainId));
