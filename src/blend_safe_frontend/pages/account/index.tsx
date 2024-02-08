@@ -19,6 +19,8 @@ import Chevron from "../../svg/components/Chevron";
 import SwitchIcon from "../../svg/components/Switch";
 import CopyIcon from "../../svg/copy.svg";
 import { truncateMiddle } from "../../utils";
+import ProposeSendNativeTokenModal from "../../components/ProposeSendNativeTokenModal";
+import { useModalManager } from "./reducer";
 
 type AccountTabs = "Dashboard" | "Transactions" | "Settings";
 
@@ -27,8 +29,8 @@ const Account = () => {
   const [canister] = useCanister("blend_safe_backend");
   const { principal } = useConnect();
   const navigate = useNavigate();
+  const { showSendNativeToken, showSendRawTransaction, hideAllModals, state: modalState } = useModalManager();
 
-  const [isImportXdrVisible, setIsImportXdrVisible] = useState(false);
   const [isCreationTxOptionsMenuVisible, setIsCreationTxOptionsMenuVisible] =
     useState(false);
 
@@ -106,10 +108,11 @@ const Account = () => {
   const createTxOptions = [
     {
       label: "Propose Raw Hash",
-      onClick: () => setIsImportXdrVisible(true),
+      onClick: () => showSendRawTransaction(),
     },
     {
       label: "Propose Send Native Token",
+      onClick: () => showSendNativeToken()
     },
     {
       label: "Propose Send ERC20 Token",
@@ -248,13 +251,24 @@ const Account = () => {
         </div>
         <ImportTransactionModal
           walletCustomId={address}
-          isVisible={isImportXdrVisible}
+          isVisible={modalState.isSendRawTransactionVisible}
           accountId={address}
-          onClose={() => setIsImportXdrVisible(false)}
+          onClose={() => hideAllModals()}
           onSuccess={() => {
             getMessagesWithSigners.call();
             getWallet.call();
-            setIsImportXdrVisible(false);
+            hideAllModals();
+          }}
+        />
+        <ProposeSendNativeTokenModal
+          walletCustomId={address}
+          isVisible={modalState.isSendNativeTokenVisible}
+          accountId={address}
+          onClose={() => hideAllModals()}
+          onSuccess={() => {
+            getMessagesWithSigners.call();
+            getWallet.call();
+            hideAllModals();
           }}
         />
       </div>

@@ -115,11 +115,11 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
           }
         }}
       />
-      <div className="z-[1050] flex flex-col items-center justify-center gap-5 rounded-lg bg-white p-8 opacity-100">
+      <div className="z-[1050] flex flex-col items-center justify-center gap-5 rounded-lg bg-white p-4 opacity-100">
         <div className="w-full min-w-[600px] max-w-[820px] overflow-hidden">
           {isConnected ? (
             <>
-              <div className="my-3 w-full text-center">
+              <div className="my-2 w-full text-center">
                 <h1 className="text-2xl">Create transaction</h1>
                 {isConnected && isDebug && (
                   <>

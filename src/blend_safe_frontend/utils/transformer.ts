@@ -1,3 +1,11 @@
+import { NonUndefined } from "react-hook-form";
+
+export type RequiredProperty<T> =  {
+  [K in keyof T]-?: NonNullable<T[K]>;
+};
+
+type NonNullableAndDefined<T> = 
+
 export type CamelCase<S extends string> = S extends `${infer A}_${infer B}`
   ? `${Lowercase<A>}${Capitalize<CamelCase<B>>}`
   : Lowercase<S>;
