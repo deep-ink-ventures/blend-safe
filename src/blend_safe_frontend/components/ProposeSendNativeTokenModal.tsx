@@ -206,6 +206,7 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                               label: chain.network,
                               value: chain.chainId,
                             }))}
+                            isDisabled={proposeSendNativeToken.pending}
                             onChange={(option) =>
                               setValue("targetChain", option?.value)
                             }

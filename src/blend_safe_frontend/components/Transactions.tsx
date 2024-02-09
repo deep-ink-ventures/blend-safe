@@ -1,29 +1,54 @@
 import { useCanister, useConnect } from "@connect2ic/react";
 import cn from "classnames";
-import dayjs from "dayjs";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { IoMdCopy } from "react-icons/io";
 import { toast } from "react-toastify";
 import BlendSafe from "../blend_safe";
+import { CHAINS } from "../config";
+import useCopyToClipboard from "../hooks/useCopyToClipboard";
 import { usePromise } from "../hooks/usePromise";
 import Search from "../svg/components/Search";
+import Spinner from "../svg/components/Spinner";
 import { formatDateTime, truncateMiddle } from "../utils";
-import useCopyToClipboard from "../hooks/useCopyToClipboard";
 import {
   Accordion,
   EmptyPlaceholder,
   LoadingPlaceholder,
+  Modal,
   Timeline,
   TransactionBadge,
   UserTally,
-  Modal
 } from "./index";
-import { IoMdCopy } from "react-icons/io";
 
 interface ITransactionsProps {
   address?: string;
   getMessagesWithSigners?: any;
   walletCustomId?: string;
 }
+
+enum TransactionStatus {
+  NA = "NA",
+  Invalid = "INVALID",
+  Valid = "VALID",
+}
+
+const StatusBadgeMap: Record<TransactionStatus, string> = {
+  [TransactionStatus.Valid]: "VALID",
+  [TransactionStatus.Invalid]: "INVALID",
+  [TransactionStatus.NA]: "N/A",
+};
+
+const StatusBadgeTextMap: Record<TransactionStatus, string> = {
+  [TransactionStatus.Valid]: "Metadata Valid",
+  [TransactionStatus.Invalid]: "Metadata Invalid",
+  [TransactionStatus.NA]: "No Metadata",
+};
+
+const AccordionHeaderColorMap: Record<TransactionStatus, string> = {
+  [TransactionStatus.Valid]: "success",
+  [TransactionStatus.Invalid]: "danger",
+  [TransactionStatus.NA]: "warning",
+};
 
 const StatusStepMap: Record<string, number> = {
   REJECTED: 0,
@@ -32,61 +57,18 @@ const StatusStepMap: Record<string, number> = {
   EXECUTED: 3,
 };
 
-const StatusBadgeMap: Record<string, string> = {
-  EXECUTABLE: "EXECUTABLE",
-  PENDING: "PENDING",
-  EXECUTED: "EXECUTED",
-  REJECTED: "REJECTED",
-};
-
-const AccordionHeaderColorMap: Record<any, string> = {
-  [`${StatusBadgeMap.EXECUTED}`]: "success",
-  [`${StatusBadgeMap.REJECTED}`]: "danger",
-  [`${StatusBadgeMap.PENDING}`]: "warning",
-};
-
-const generateRandomNumber = (min: number, max: number) => {
-  return Math.floor(Math.random() * (max - min + 1) + min);
-};
-
-const statusBadgeValues = Object.values(StatusBadgeMap);
-
-const CHAIN_ID = 5; // goerli
-
-const mockData = Array(5)
-  .fill(null)
-  .map(() => ({
-    createdAt: dayjs().subtract(generateRandomNumber(2, 3), "d").toString(),
-    updatedAt: dayjs().subtract(generateRandomNumber(3, 4), "d").toString(),
-    executedAt: dayjs().subtract(generateRandomNumber(4, 5), "d").toString(),
-    callFunc:
-      generateRandomNumber(0, 1) === 0
-        ? "Accept Transaction"
-        : "Change Threshold",
-    approvals: Array(generateRandomNumber(0, 2))
-      .fill(null)
-      .map(() => ({})),
-    signatories: Array(generateRandomNumber(3, 5))
-      .fill(null)
-      .map(() => ({})),
-    callArgs: Array(generateRandomNumber(2, 5))
-      .fill(null)
-      .map((_v, i) => `param ${i + 1}`),
-    status:
-      statusBadgeValues[generateRandomNumber(0, statusBadgeValues.length - 1)],
-  }));
-
-const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransactionsProps) => {
-  const [, setSearchTerm] = useState("");
+const Transactions: React.FC<ITransactionsProps> = ({
+  getMessagesWithSigners,
+  walletCustomId = "",
+}) => {
+  const [, setSearchTerm] = useState<string>("");
   const [activeAccordion, setActiveAccordion] = useState<number | null>(null);
   const [signTxHash, setSignTxHash] = useState<string | null>();
-
   const { principal } = useConnect();
   const [canister] = useCanister("blend_safe_backend");
-
   const { textRef, copyToClipboard } = useCopyToClipboard<HTMLDivElement>();
 
-  const getWallet = usePromise({
+  const getWallet = usePromise<string[]>({
     promiseFunction: async () => {
       const safe = new BlendSafe(canister as any, walletCustomId);
       const response = await safe.getWallet();
@@ -94,7 +76,7 @@ const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransact
     },
   });
 
-  const getTransaction = usePromise({
+  const getTransaction = usePromise<any>({
     promiseFunction: async (txHash: string) => {
       const safe = new BlendSafe(canister as any, walletCustomId);
       const response = await safe.web3.eth.getTransactionReceipt(`0x${txHash}`);
@@ -102,94 +84,8 @@ const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransact
     },
   });
 
-  const approveTransaction = usePromise({
-    promiseFunction: async (txnHash: string) => {
-      try {
-        const safe = new BlendSafe(canister as any, walletCustomId);
-        const response = await safe.approve(txnHash);
-        getMessagesWithSigners.call();
-        toast.success("Successfully approved a message");
-        return response;
-      } catch (ex) {
-        toast.error(ex.toString());
-      }
-    },
-  });
-
-  const signTransaction = usePromise({
-    promiseFunction: async (txnHash: string) => {
-      try {
-        const safe = new BlendSafe(canister as any, walletCustomId);
-        const response = await safe.sign(txnHash);
-        getMessagesWithSigners.call();
-        toast.success("Successfully signed a message");
-        setSignTxHash(txnHash);
-        return response;
-      } catch (ex) {
-        toast.error(ex.toString());
-      }
-    }
-  })
-
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    offset: 0,
-  });
-
-  const handleSearch = (e: any) => {
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-  };
-
-  const handleApproveTransaction = async (transaction: string) => {
-    await approveTransaction.call(transaction);
-  };
-
-  const handleSignTransaction = async (transaction: string) => {
-    await signTransaction.call(transaction);
-  }
-
-  const displayButtons = (status: any, txhash: string) => {
-    switch (status) {
-      case "EXECUTABLE":
-        return (
-          <div className="flex w-full justify-center">
-            <button
-               className={cn("btn btn-primary flex-1", {
-                loading: signTransaction.pending,
-              })}
-              disabled={signTransaction.pending}
-              onClick={() => handleSignTransaction(txhash)}
-            >
-              Sign
-            </button>
-          </div>
-        );
-
-      case "PENDING":
-        return (
-          <div className="flex w-full justify-center gap-2">
-            <button className="btn btn-outline hidden flex-1">Reject</button>
-            <button
-              className={cn("btn btn-primary flex-1", {
-                loading: approveTransaction.pending,
-              })}
-              disabled={approveTransaction.pending}
-              onClick={() => handleApproveTransaction(txhash)}
-            >
-              {approveTransaction.pending ? "Approving" : "Approve"}
-            </button>
-          </div>
-        );
-
-      case "EXECUTED":
-        return null;
-
-      case "REJECTED":
-        return null;
-
-      default:
-        return null;
-    }
   };
 
   useEffect(() => {
@@ -225,127 +121,31 @@ const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransact
               <EmptyPlaceholder label="You don't have any transactions yet" />
             )}
           {!getMessagesWithSigners?.pending &&
-            getMessagesWithSigners?.value?.map((txn, index) => {
-              const txnAddress = txn[0];
+            getMessagesWithSigners?.value?.map((txn: any, index: number) => {
               const txnApprovals = txn[1];
-              const txnStatus: any =
+              const txnStatus =
                 txnApprovals?.length < (getWallet.value?.signers?.length || 0)
                   ? "PENDING"
                   : "EXECUTABLE";
               return (
-                <Accordion.Container
+                <TransactionAccordion
                   key={index}
                   id={index}
-                  onClick={() =>
-                    setActiveAccordion(activeAccordion === index ? null : index)
-                  }
-                  color={
-                    (AccordionHeaderColorMap[txn.status as any] as any) ||
-                    "base"
-                  }
-                  expanded={index === activeAccordion}
-                >
-                  <Accordion.Header className="flex gap-2 text-sm">
-                    <div className="grow font-semibold">
-                      {txn.callFunc || truncateMiddle(txnAddress)}
-                    </div>
-                    <div>{formatDateTime(txn.createdAt)}</div>
-                    <UserTally
-                      value={txnApprovals?.length}
-                      over={getWallet.value?.signers?.length}
-                    />
-                    <TransactionBadge
-                      status={StatusBadgeMap[txn.status as any] as any}
-                    />
-                  </Accordion.Header>
-                  <Accordion.Content className="flex divide-x">
-                    <div className="flex w-2/3 flex-col space-y-3 px-2 pr-4">
-                      <div>
-                        <div>
-                          <p className="font-semibold">
-                            Required Confirmations to accept new transactions:{" "}
-                          </p>
-                          {getWallet.value?.signers?.length
-                            ? getWallet.value.signers.length -
-                              txnApprovals?.length
-                            : "-"}
-                        </div>
-                      </div>
-                      {txn.callFunc && (
-                        <div>
-                          <div>
-                            <p className="font-semibold">{txn.callFunc}: </p>
-                            {txn.callArgs
-                              ?.map((item: any) => {
-                                return truncateMiddle(item.toString());
-                              })
-                              .join(", ")}
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-semibold">Created at: </p>
-                        {formatDateTime(txn.createdAt)}
-                      </div>
-                      <div>
-                        <p className="font-semibold">Updated at: </p>
-                        {formatDateTime(txn.updatedAt)}
-                      </div>
-                      {txnStatus === "EXECUTED" && (
-                        <div>
-                          <p className="font-semibold">Executed at: </p>
-                          {formatDateTime(txn.executedAt)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="grow space-y-2 px-3">
-                      <Timeline>
-                        {[
-                          "Created",
-                          `Confirmations ${txnApprovals?.length} of ${getWallet.value?.signers?.length}`,
-                          "Signed",
-                        ].map((step, stepIndex) => (
-                          <Timeline.Item
-                            key={`${stepIndex}-${step}`}
-                            {...(stepIndex <=
-                              (StatusStepMap[txnStatus as any] as any) && {
-                              status:
-                                stepIndex === StatusStepMap[txnStatus as any]
-                                  ? "active"
-                                  : "completed",
-                            })}
-                          >
-                            {step}
-                          </Timeline.Item>
-                        ))}
-                      </Timeline>
-                      {txnStatus !== "PENDING" && txnStatus !== "EXECUTED" && (
-                        <div>Can be executed once threshold is reached</div>
-                      )}
-
-                      <div className="flex justify-center">
-                        {displayButtons(txnStatus, txnAddress)}
-                      </div>
-                    </div>
-                  </Accordion.Content>
-                </Accordion.Container>
+                  activeAccordion={activeAccordion}
+                  setActiveAccordion={setActiveAccordion}
+                  walletCustomId={walletCustomId}
+                  getMessagesWithSigners={getMessagesWithSigners}
+                  txnStatus={txnStatus}
+                  txn={txn}
+                  getWallet={getWallet}
+                  setSignTxHash={setSignTxHash}
+                />
               );
             })}
         </>
       </div>
-      {/* <div>
-        <Pagination
-          currentPage={pagination.currentPage}
-          pageSize={10}
-          totalCount={mockData.length}
-          onPageChange={(newPage, newOffset) =>
-            setPagination({ currentPage: newPage, offset: newOffset })
-          }
-        />
-      </div> */}
       <Modal isVisible={!!signTxHash} onClose={() => setSignTxHash(null)}>
         <Modal.Header>Message Successfully signed</Modal.Header>
-
         <div className="relative overflow-x-auto rounded-lg border border-gray-300 py-6 text-center">
           <span className="hidden" ref={textRef}>
             {`${signTxHash}`}
@@ -365,4 +165,309 @@ const Transactions = ({ getMessagesWithSigners, walletCustomId = '' }: ITransact
     </>
   );
 };
+
+const TransactionAccordion = ({
+  walletCustomId,
+  getMessagesWithSigners,
+  txnStatus,
+  txn,
+  getWallet,
+  setSignTxHash,
+  activeAccordion,
+  setActiveAccordion,
+  id,
+}: {
+  walletCustomId: string;
+  getMessagesWithSigners: any;
+  txnStatus?: string;
+  txn: any;
+  getWallet: any;
+  setSignTxHash: any;
+  activeAccordion: number | null;
+  setActiveAccordion: (id: number | null) => void;
+  id: number;
+}) => {
+  const [canister] = useCanister("blend_safe_backend");
+
+  const txnAddress = txn[0];
+  const txnApprovals = txn[1];
+
+  const { textRef, copyToClipboard } = useCopyToClipboard();
+
+  const getMetadataForMessage = usePromise({
+    promiseFunction: async (txHash: string) => {
+      const safe = new BlendSafe(canister as any, walletCustomId);
+      const response = await safe.getMetadataForMessage(txHash);
+      const transactionData = JSON.parse(response || "");
+
+      if (!transactionData?.transaction) {
+        return null;
+      }
+
+      const [decodedTx, isValid] = await Promise.all([
+        safe.decodeTransaction(transactionData?.transaction),
+        safe.getEthTransactionHashFromTransactionObject(
+          transactionData.transaction,
+          transactionData.chainId
+        ),
+      ]);
+
+      return {
+        isValid: !!isValid,
+        chainId: transactionData.chainId,
+        transaction: decodedTx,
+        rawMetadata: transactionData,
+      };
+    },
+  });
+
+  const approveTransaction = usePromise({
+    promiseFunction: async (txnHash: string) => {
+      try {
+        const safe = new BlendSafe(canister as any, walletCustomId);
+        const response = await safe.approve(txnHash);
+        getMessagesWithSigners.call();
+        toast.success("Successfully approved a message");
+        return response;
+      } catch (ex) {
+        toast.error(ex.toString());
+      }
+    },
+  });
+
+  const signTransaction = usePromise({
+    promiseFunction: async (txnHash: string, metadata?: any) => {
+      try {
+        const safe = new BlendSafe(canister as any, walletCustomId);
+        let response;
+
+        if (metadata.transaction) {
+          response = await safe.signAndBroadcastTransaction(
+            metadata.transaction,
+            metadata.chainId
+          );
+        } else {
+          response = await safe.sign(txnHash);
+        }
+        getMessagesWithSigners.call();
+        toast.success("Successfully signed a message");
+        setSignTxHash(response);
+        return response;
+      } catch (ex) {
+        toast.error(ex.toString());
+      }
+    },
+  });
+
+  const isLoading =
+    signTransaction.pending ||
+    getMetadataForMessage.pending ||
+    approveTransaction.pending;
+
+  const displayButtons = (status: any, txhash: string) => {
+    switch (status) {
+      case "EXECUTABLE":
+        return (
+          <div className="flex w-full justify-center">
+            <button
+              className={cn("btn btn-primary flex-1", {
+                loading: isLoading,
+              })}
+              disabled={isLoading}
+              onClick={() =>
+                handleSignTransaction(
+                  txhash,
+                  decodedTransactionMetadata?.rawMetadata
+                )
+              }
+            >
+              Sign
+            </button>
+          </div>
+        );
+
+      case "PENDING":
+        return (
+          <div className="flex w-full justify-center gap-2">
+            <button className="btn btn-outline hidden flex-1">Reject</button>
+            <button
+              className={cn("btn btn-primary flex-1", {
+                loading: isLoading,
+              })}
+              disabled={isLoading}
+              onClick={() => handleApproveTransaction(txhash)}
+            >
+              {approveTransaction.pending ? "Approving" : "Approve"}
+            </button>
+          </div>
+        );
+
+      case "EXECUTED":
+        return null;
+
+      case "REJECTED":
+        return null;
+
+      default:
+        return null;
+    }
+  };
+
+  const handleSignTransaction = async (txHash: string, metadata: any) => {
+    await signTransaction.call(txHash, metadata);
+  };
+
+  const handleApproveTransaction = async (transaction: string) => {
+    await approveTransaction.call(transaction);
+  };
+
+  const decodedTransactionMetadata = useMemo(
+    () => getMetadataForMessage.value,
+    [getMetadataForMessage.value]
+  );
+
+  const metadataStatus = useMemo(() => {
+    if (getMetadataForMessage.rejected) {
+      return TransactionStatus.NA;
+    }
+
+    if (getMetadataForMessage.fulfilled) {
+      if (!!decodedTransactionMetadata) {
+        if (decodedTransactionMetadata.isValid) {
+          return TransactionStatus.Valid;
+        } else {
+          return TransactionStatus.Invalid;
+        }
+      }
+    }
+  }, [getMetadataForMessage]);
+
+  return (
+    <>
+      <Accordion.Container
+        key={id}
+        id={id}
+        onClick={() => setActiveAccordion(activeAccordion === id ? null : id)}
+        color={(AccordionHeaderColorMap[metadataStatus || ""] as any) || "base"}
+        expanded={id === activeAccordion}
+      >
+        <Accordion.Header className="flex gap-2 text-sm">
+          <div className="grow font-semibold">{truncateMiddle(txnAddress)}</div>
+          <UserTally
+            value={txnApprovals?.length}
+            over={getWallet.value?.signers?.length}
+          />
+          <TransactionBadge
+            status={StatusBadgeMap[metadataStatus as any]}
+            label={StatusBadgeTextMap[metadataStatus as any]}
+          />
+        </Accordion.Header>
+        <Accordion.Content
+          className={"flex divide-x"}
+          onExpand={() => {
+            if (
+              !getMetadataForMessage.fulfilled &&
+              !getMetadataForMessage.rejected
+            ) {
+              getMetadataForMessage.call(txnAddress);
+            }
+          }}
+        >
+          <div className="flex w-2/3 flex-col space-y-3 px-2 pr-4">
+            {getMetadataForMessage.pending && (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl py-12">
+                <Spinner className="h-8 w-8 fill-card-primary text-base-300" />
+              </div>
+            )}
+            {!getMetadataForMessage.pending && (
+              <div>
+                <p className="font-semibold">
+                  Required Confirmations to accept new transactions:{" "}
+                </p>
+                {getWallet.value?.signers?.length
+                  ? getWallet.value.signers.length - txnApprovals?.length
+                  : "-"}
+              </div>
+            )}
+            {decodedTransactionMetadata?.chainId && (
+              <div>
+                <p className="font-semibold">Chain</p>
+                {
+                  CHAINS.find(
+                    (chain) =>
+                      chain.chainId === decodedTransactionMetadata?.chainId
+                  )?.network
+                }
+              </div>
+            )}
+            {!!decodedTransactionMetadata?.transaction?.to && (
+              <div>
+                <p className="font-semibold">Receiver</p>
+                <div className="flex gap-2 items-center">
+                  <span className="hidden" ref={textRef}>
+                    {`${decodedTransactionMetadata.transaction.to}`}
+                  </span>
+                  {truncateMiddle(decodedTransactionMetadata.transaction.to)}
+                  <IoMdCopy
+                    className="cursor-pointer"
+                    onClick={() => {
+                      copyToClipboard();
+                      toast.success(
+                        `${truncateMiddle(
+                          `${decodedTransactionMetadata.transaction.to}`
+                        )} copied to clipboard`
+                      );
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {!!decodedTransactionMetadata?.transaction?.to && (
+              <div>
+                <p className="font-semibold">Amount</p>
+                {decodedTransactionMetadata.transaction.value}
+              </div>
+            )}
+            {txnStatus === "EXECUTED" && (
+              <div>
+                <p className="font-semibold">Executed at: </p>
+                {formatDateTime(txn.executedAt)}
+              </div>
+            )}
+          </div>
+          <div className="grow space-y-2 px-3">
+            <Timeline>
+              {[
+                "Created",
+                `Confirmations ${txnApprovals?.length} of ${getWallet.value?.signers?.length}`,
+                "Signed",
+              ].map((step, stepIndex) => (
+                <Timeline.Item
+                  key={`${stepIndex}-${step}`}
+                  {...(stepIndex <=
+                    (StatusStepMap[txnStatus as any] as any) && {
+                    status:
+                      stepIndex === StatusStepMap[txnStatus as any]
+                        ? "active"
+                        : "completed",
+                  })}
+                >
+                  {step}
+                </Timeline.Item>
+              ))}
+            </Timeline>
+            {txnStatus !== "PENDING" && txnStatus !== "EXECUTED" && (
+              <div>Can be executed once threshold is reached</div>
+            )}
+
+            <div className="flex justify-center">
+              {displayButtons(txnStatus, txnAddress)}
+            </div>
+          </div>
+        </Accordion.Content>
+      </Accordion.Container>
+    </>
+  );
+};
+
 export default Transactions;

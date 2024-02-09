@@ -1,15 +1,23 @@
 import cn from 'classnames';
 import type { ReactNode } from 'react';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAccordionContext } from './context';
 
 export interface IAccordionContent {
   children?: ReactNode;
   className?: string;
+  onExpand?: () => void;
 }
 
-const AccordionContent = ({ children, className }: IAccordionContent) => {
+const AccordionContent = ({ children, className, onExpand }: IAccordionContent) => {
   const { expanded } = useAccordionContext();
+
+  useEffect(() => {
+    if (expanded && onExpand) {
+      onExpand()
+    }
+  }, [expanded])
+ 
   return (
     <div
       className={cn(
