@@ -12,7 +12,7 @@ import { RequiredProperty } from "../utils/transformer";
 import ConnectWallet from "./ConnectWallet";
 import { isValidAddress } from "../utils";
 
-interface ProposeSendNativeTokenProps {
+interface ProposeSendErc20TokenProps {
   walletCustomId: string;
   isVisible?: boolean;
   accountId?: string;
@@ -21,20 +21,22 @@ interface ProposeSendNativeTokenProps {
   onSuccess?: () => void;
 }
 
-interface ProposeSendNativeTokenFormValues {
+interface ProposeSendErc20TokenFormValues {
   receiver: string | null;
   amount: number | null;
   targetChain?: number | null;
+  decimals?: number | null;
+  tokenAddress?: string | null;
 }
 
-const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
+const ProposeSendErc20TokenModal = (props: ProposeSendErc20TokenProps) => {
   const { isVisible, accountId, onSuccess, onClose, walletCustomId } = props;
   const [canister] = useCanister("blend_safe_backend");
   const { isConnected, principal } = useConnect();
 
   const [t, setT] = useState<any>();
 
-  const formMethods = useForm<ProposeSendNativeTokenFormValues>({
+  const formMethods = useForm<ProposeSendErc20TokenFormValues>({
     defaultValues: {
       receiver: null,
       amount: null,
@@ -52,16 +54,18 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
     formState: { errors },
   } = formMethods;
 
-  const proposeSendNativeToken = usePromise({
+  const proposeSendErc20Token = usePromise({
     promiseFunction: async (
-      data: RequiredProperty<ProposeSendNativeTokenFormValues>
+      data: RequiredProperty<ProposeSendErc20TokenFormValues>
     ) => {
       try {
         const safe = new BlendSafe(canister as any, walletCustomId);
 
-        const transaction = await safe.prepareSendEthTransaction(
+        const transaction = await safe.prepareERC20Transfer(
+          data.tokenAddress,
           data.receiver,
-          data.amount.toString()
+          data.amount.toString(),
+          data.decimals
         );
 
         const txHash = await safe.getEthTransactionHashFromTransactionObject(
@@ -89,11 +93,11 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
     },
   });
 
-  const onSubmit: SubmitHandler<ProposeSendNativeTokenFormValues> = async (
+  const onSubmit: SubmitHandler<ProposeSendErc20TokenFormValues> = async (
     data
   ) => {
-    proposeSendNativeToken.call(
-      data as RequiredProperty<ProposeSendNativeTokenFormValues>
+    proposeSendErc20Token.call(
+      data as RequiredProperty<ProposeSendErc20TokenFormValues>
     );
   };
 
@@ -120,7 +124,7 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
           {isConnected ? (
             <>
               <div className="my-3 w-full text-center">
-                <h1 className="text-2xl">Propose Send Native Token</h1>
+                <h1 className="text-2xl">Propose Send ERC20 Token</h1>
               </div>
               <FormProvider {...formMethods}>
                 <form onSubmit={handleSubmit(onSubmit)} className="w-full">
@@ -139,7 +143,7 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                           <input
                             className={cn("w-full p-2")}
                             placeholder=""
-                            disabled={proposeSendNativeToken.pending}
+                            disabled={proposeSendErc20Token.pending}
                             {...register("receiver", {
                               required: "Required",
                               validate: (value) => {
@@ -164,7 +168,42 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                       <div className="w-full">
                         <div className="flex items-end justify-between">
                           <p className="mb-1 ml-2">
-                            Amount of native currency{" "}
+                            Token address{" "}
+                            <span className="text-lg font-medium text-red-600">
+                              *
+                            </span>
+                          </p>
+                        </div>
+                        <div className="relative">
+                          <input
+                            className={cn("w-full p-2")}
+                            placeholder=""
+                            disabled={proposeSendErc20Token.pending}
+                            {...register("tokenAddress", {
+                              required: "Required",
+                              validate: (value) => {
+                                return Boolean(value && isValidAddress(value)) || 'Invalid ETH address'
+                              }
+                            })}
+                          />
+                        </div>
+                      </div>
+                      <ErrorMessage
+                        errors={errors}
+                        name="tokenAddress"
+                        render={({ message }) => (
+                          <p className="ml-2 mt-1 text-error-content">
+                            {message}
+                          </p>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex w-full flex-col justify-center">
+                      <div className="w-full">
+                        <div className="flex items-end justify-between">
+                          <p className="mb-1 ml-2">
+                            Token amount{" "}
                             <span className="text-lg font-medium text-red-600">
                               *
                             </span>
@@ -175,7 +214,7 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                             className={cn("w-full p-2")}
                             placeholder=""
                             type="number"
-                            disabled={proposeSendNativeToken.pending}
+                            disabled={proposeSendErc20Token.pending}
                             {...register("amount", {
                               required: "Required",
                             })}
@@ -185,6 +224,52 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                       <ErrorMessage
                         errors={errors}
                         name="amount"
+                        render={({ message }) => (
+                          <p className="ml-2 mt-1 text-error-content">
+                            {message}
+                          </p>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex w-full flex-col justify-center">
+                      <div className="w-full">
+                        <div className="flex items-end justify-between">
+                          <p className="mb-1 ml-2">
+                            Token decimals{" "}
+                            <span className="text-lg font-medium text-red-600">
+                              *
+                            </span>
+                          </p>
+                        </div>
+                        <div className="relative">
+                          <input
+                            className={cn("w-full p-2")}
+                            placeholder=""
+                            type="number"
+                            onKeyPress={(event) => {
+                              if (!/[0-9]/.test(event.key)) {
+                                event.preventDefault();
+                              }
+                            }}
+                            disabled={proposeSendErc20Token.pending}
+                            {...register("decimals", {
+                              required: "Required",
+                              max: {
+                                value: 18,
+                                message: "Maximum valid decimal is 18",
+                              },
+                              min: {
+                                value: 0,
+                                message: "Minimum valid decimal is 0",
+                              },
+                            })}
+                          />
+                        </div>
+                      </div>
+                      <ErrorMessage
+                        errors={errors}
+                        name="decimals"
                         render={({ message }) => (
                           <p className="ml-2 mt-1 text-error-content">
                             {message}
@@ -210,7 +295,7 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                               label: chain.network,
                               value: chain.chainId,
                             }))}
-                            isDisabled={proposeSendNativeToken.pending}
+                            isDisabled={proposeSendErc20Token.pending}
                             onChange={(option) =>
                               setValue("targetChain", option?.value)
                             }
@@ -231,15 +316,13 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                   <div className="mb-3 mt-6 flex w-full justify-center">
                     <button
                       className={cn(`btn btn-primary mr-3 w-48`, {
-                        loading: proposeSendNativeToken.pending,
+                        loading: proposeSendErc20Token.pending,
                       })}
-                      disabled={proposeSendNativeToken.pending}
+                      disabled={proposeSendErc20Token.pending}
                       type="submit"
                     >
                       {`${
-                        proposeSendNativeToken.pending
-                          ? "Processing"
-                          : "Propose"
+                        proposeSendErc20Token.pending ? "Processing" : "Propose"
                       }`}
                     </button>
                   </div>
@@ -255,4 +338,4 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
   );
 };
 
-export default ProposeSendNativeTokenModal;
+export default ProposeSendErc20TokenModal;

@@ -9,6 +9,8 @@ import { toast, ToastContainer } from "react-toastify";
 import BlendSafe from "../../blend_safe";
 import { Avatar, Sidebar } from "../../components";
 import ImportTransactionModal from "../../components/ImportTransactionModal";
+import ProposeSendErc20TokenModal from "../../components/ProposeSendErc20TokenModal";
+import ProposeSendNativeTokenModal from "../../components/ProposeSendNativeTokenModal";
 import Settings from "../../components/Settings";
 import Transactions from "../../components/Transactions";
 import useCopyToClipboard from "../../hooks/useCopyToClipboard";
@@ -19,7 +21,6 @@ import Chevron from "../../svg/components/Chevron";
 import SwitchIcon from "../../svg/components/Switch";
 import CopyIcon from "../../svg/copy.svg";
 import { truncateMiddle } from "../../utils";
-import ProposeSendNativeTokenModal from "../../components/ProposeSendNativeTokenModal";
 import { useModalManager } from "./reducer";
 
 type AccountTabs = "Dashboard" | "Transactions" | "Settings";
@@ -29,7 +30,13 @@ const Account = () => {
   const [canister] = useCanister("blend_safe_backend");
   const { principal } = useConnect();
   const navigate = useNavigate();
-  const { showSendNativeToken, showSendRawTransaction, hideAllModals, state: modalState } = useModalManager();
+  const {
+    showSendNativeToken,
+    showSendRawTransaction,
+    showSendErc20TokenTransaction,
+    hideAllModals,
+    state: modalState,
+  } = useModalManager();
 
   const [isCreationTxOptionsMenuVisible, setIsCreationTxOptionsMenuVisible] =
     useState(false);
@@ -112,10 +119,11 @@ const Account = () => {
     },
     {
       label: "Propose Send Native Token",
-      onClick: () => showSendNativeToken()
+      onClick: () => showSendNativeToken(),
     },
     {
       label: "Propose Send ERC20 Token",
+      onClick: () => showSendErc20TokenTransaction(),
     },
   ];
 
@@ -263,6 +271,17 @@ const Account = () => {
         <ProposeSendNativeTokenModal
           walletCustomId={address}
           isVisible={modalState.isSendNativeTokenVisible}
+          accountId={address}
+          onClose={() => hideAllModals()}
+          onSuccess={() => {
+            getMessagesWithSigners.call();
+            getWallet.call();
+            hideAllModals();
+          }}
+        />
+        <ProposeSendErc20TokenModal
+          walletCustomId={address}
+          isVisible={modalState.isSendErc20TokenVisible}
           accountId={address}
           onClose={() => hideAllModals()}
           onSuccess={() => {
