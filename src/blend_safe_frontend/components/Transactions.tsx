@@ -1,10 +1,10 @@
-import { useCanister, useConnect } from "@connect2ic/react";
+import { useConnect } from "@connect2ic/react";
 import cn from "classnames";
 import React, { useEffect, useMemo, useState } from "react";
 import { IoMdCopy } from "react-icons/io";
 import { toast } from "react-toastify";
-import BlendSafe from "../blend_safe";
 import { CHAINS } from "../config";
+import { useSafe } from "../context/Safe";
 import useCopyToClipboard from "../hooks/useCopyToClipboard";
 import { usePromise } from "../hooks/usePromise";
 import Search from "../svg/components/Search";
@@ -65,12 +65,11 @@ const Transactions: React.FC<ITransactionsProps> = ({
   const [activeAccordion, setActiveAccordion] = useState<number | null>(null);
   const [signTxHash, setSignTxHash] = useState<string | null>();
   const { principal } = useConnect();
-  const [canister] = useCanister("blend_safe_backend");
+  const { safe } = useSafe();
   const { textRef, copyToClipboard } = useCopyToClipboard<HTMLDivElement>();
 
   const getWallet = usePromise<string[]>({
     promiseFunction: async () => {
-      const safe = new BlendSafe(canister as any, walletCustomId);
       const response = await safe.getWallet();
       return response?.[0];
     },
@@ -78,7 +77,6 @@ const Transactions: React.FC<ITransactionsProps> = ({
 
   const getTransaction = usePromise<any>({
     promiseFunction: async (txHash: string) => {
-      const safe = new BlendSafe(canister as any, walletCustomId);
       const response = await safe.web3.eth.getTransactionReceipt(`0x${txHash}`);
       return response;
     },
@@ -187,7 +185,7 @@ const TransactionAccordion = ({
   setActiveAccordion: (id: number | null) => void;
   id: number;
 }) => {
-  const [canister] = useCanister("blend_safe_backend");
+  const { safe } = useSafe();
 
   const txnAddress = txn[0];
   const txnApprovals = txn[1];
@@ -196,7 +194,6 @@ const TransactionAccordion = ({
 
   const getMetadataForMessage = usePromise({
     promiseFunction: async (txHash: string) => {
-      const safe = new BlendSafe(canister as any, walletCustomId);
       const response = await safe.getMetadataForMessage(txHash);
       const transactionData = JSON.parse(response || "");
 
@@ -224,7 +221,6 @@ const TransactionAccordion = ({
   const approveTransaction = usePromise({
     promiseFunction: async (txnHash: string) => {
       try {
-        const safe = new BlendSafe(canister as any, walletCustomId);
         const response = await safe.approve(txnHash);
         getMessagesWithSigners.call();
         toast.success("Successfully approved a message");
@@ -238,7 +234,6 @@ const TransactionAccordion = ({
   const signTransaction = usePromise({
     promiseFunction: async (txnHash: string, metadata?: any) => {
       try {
-        const safe = new BlendSafe(canister as any, walletCustomId);
         let response;
 
         if (metadata.transaction) {

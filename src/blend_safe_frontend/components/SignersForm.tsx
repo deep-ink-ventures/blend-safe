@@ -1,4 +1,3 @@
-import { useCanister } from "@connect2ic/react";
 import { ErrorMessage } from "@hookform/error-message";
 import React, { useEffect, useMemo } from "react";
 import {
@@ -8,7 +7,7 @@ import {
   useForm,
 } from "react-hook-form";
 import { IoMdAdd, IoMdClose } from "react-icons/io";
-import BlendSafe from "../blend_safe";
+import { useSafe } from "../context/Safe";
 import { usePromise } from "../hooks/usePromise";
 import { EmptyPlaceholder } from "./EmptyPlaceholder";
 import { LoadingPlaceholder } from "./LoadingPlaceholder";
@@ -23,20 +22,17 @@ export const SignersForm = ({
   title = "Remove Signer",
   onSubmit,
   className,
-  address,
   disableRemove,
   disableAdd,
 }: {
   title?: string;
   onSubmit?: (data: SignersFormValues) => void;
   className?: string;
-  address: string;
   disableRemove?: boolean;
   disableAdd?: boolean;
 }) => {
-  const [canister] = useCanister("blend_safe_backend");
-
   const formMethods = useForm<SignersFormValues>();
+  const { safe } = useSafe();
 
   const {
     control,
@@ -53,7 +49,6 @@ export const SignersForm = ({
 
   const getWallet = usePromise({
     promiseFunction: async () => {
-      const safe = new BlendSafe(canister as any, address);
       const response = await safe.getWallet();
       return response?.[0];
     },
