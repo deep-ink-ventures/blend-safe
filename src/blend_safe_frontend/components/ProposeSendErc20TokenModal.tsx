@@ -1,22 +1,19 @@
-import { useCanister, useConnect } from "@connect2ic/react";
+import { useConnect } from "@connect2ic/react";
 import { ErrorMessage } from "@hookform/error-message";
 import cn from "classnames";
-import React, { useState, type ReactNode } from "react";
+import React from "react";
 import { FormProvider, useForm, type SubmitHandler } from "react-hook-form";
 import ReactSelect from "react-select";
 import { toast } from "react-toastify";
-import BlendSafe from "../blend_safe";
 import { CHAINS } from "../config";
+import { useSafe } from "../context/Safe";
 import { usePromise } from "../hooks/usePromise";
+import { isValidAddress } from "../utils";
 import { RequiredProperty } from "../utils/transformer";
 import ConnectWallet from "./ConnectWallet";
-import { isValidAddress } from "../utils";
 
 interface ProposeSendErc20TokenProps {
-  walletCustomId: string;
   isVisible?: boolean;
-  accountId?: string;
-  children?: ReactNode;
   onClose?: () => void;
   onSuccess?: () => void;
 }
@@ -30,11 +27,9 @@ interface ProposeSendErc20TokenFormValues {
 }
 
 const ProposeSendErc20TokenModal = (props: ProposeSendErc20TokenProps) => {
-  const { isVisible, accountId, onSuccess, onClose, walletCustomId } = props;
-  const [canister] = useCanister("blend_safe_backend");
-  const { isConnected, principal } = useConnect();
-
-  const [t, setT] = useState<any>();
+  const { isVisible, onClose } = props;
+  const { isConnected } = useConnect();
+  const { safe } = useSafe();
 
   const formMethods = useForm<ProposeSendErc20TokenFormValues>({
     defaultValues: {
@@ -59,8 +54,6 @@ const ProposeSendErc20TokenModal = (props: ProposeSendErc20TokenProps) => {
       data: RequiredProperty<ProposeSendErc20TokenFormValues>
     ) => {
       try {
-        const safe = new BlendSafe(canister as any, walletCustomId);
-
         const transaction = await safe.prepareERC20Transfer(
           data.tokenAddress,
           data.receiver,
