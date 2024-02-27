@@ -1,17 +1,15 @@
-import { useCanister, useConnect } from "@connect2ic/react";
+import { useConnect } from "@connect2ic/react";
 import { ErrorMessage } from "@hookform/error-message";
 import cn from "classnames";
 import React, { useState, type ReactNode } from "react";
 import { FormProvider, useForm, type SubmitHandler } from "react-hook-form";
 import { toast } from "react-toastify";
-import BlendSafe from "../blend_safe";
+import { useSafe } from "../context/Safe";
 import { usePromise } from "../hooks/usePromise";
 import ConnectWallet from "./ConnectWallet";
 
 interface IImportTransactionProps {
-  walletCustomId:string; 
   isVisible?: boolean;
-  accountId?: string;
   children?: ReactNode;
   onClose?: () => void;
   onSuccess?: () => void;
@@ -26,11 +24,11 @@ const MAX_XDR_CHAR_COUNT = 4096;
 const isDebug = true;
 
 const ImportTransactionModal = (props: IImportTransactionProps) => {
-  const { isVisible, accountId, onSuccess, onClose, walletCustomId } = props;
-  const [canister] = useCanister("blend_safe_backend");
-  const { isConnected, principal } = useConnect();
+  const { isVisible, onClose } = props;
+  const { safe } = useSafe();
+  const { isConnected } = useConnect();
 
-  const [t, setT] = useState<any>();
+  const [txHash, setTxHash] = useState<any>();
 
   const formMethods = useForm<CreateTransactionFormValues>({
     defaultValues: {
@@ -50,7 +48,6 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
   const propose = usePromise({
     promiseFunction: async (txHash: string) => {
       try {
-        const safe = new BlendSafe(canister as any, walletCustomId);
         const response = await safe.propose(txHash);
         toast.success("Successfully posted a message");
         reset();
@@ -69,7 +66,6 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
   };
 
   const testGenerateTransactionHash = async () => {
-    const safe = new BlendSafe(canister as any, walletCustomId);
     const AMOUNT_IN_ETHER = `0.00000${Math.floor(
       Math.random() * (999 - 100 + 1) + 100
     )}`;
@@ -92,7 +88,7 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
       transaction,
       CHAIN_ID
     );
-    setT(txTest);
+    setTxHash(txTest);
   };
 
   const txHashWatch = watch("txHash");
@@ -115,11 +111,11 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
           }
         }}
       />
-      <div className="z-[1050] flex flex-col items-center justify-center gap-5 rounded-lg bg-white p-8 opacity-100">
+      <div className="z-[1050] flex flex-col items-center justify-center gap-5 rounded-lg bg-white p-4 opacity-100">
         <div className="w-full min-w-[600px] max-w-[820px] overflow-hidden">
           {isConnected ? (
             <>
-              <div className="my-3 w-full text-center">
+              <div className="my-2 w-full text-center">
                 <h1 className="text-2xl">Create transaction</h1>
                 {isConnected && isDebug && (
                   <>
@@ -129,7 +125,7 @@ const ImportTransactionModal = (props: IImportTransactionProps) => {
                     >
                       generateTxHashForTest()
                     </a>
-                    {!!t && <p>{t}</p>}
+                    {!!txHash && <p>{txHash}</p>}
                   </>
                 )}
               </div>

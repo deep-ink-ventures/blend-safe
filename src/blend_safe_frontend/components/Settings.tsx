@@ -1,10 +1,9 @@
-import { useCanister } from "@connect2ic/react";
 import { Principal } from "@dfinity/principal";
 import cn from "classnames";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import { Wallet } from "../../declarations/blend_safe_backend/blend_safe_backend.did";
-import BlendSafe from "../blend_safe";
+import { useSafe } from "../context/Safe";
 import { usePromise } from "../hooks/usePromise";
 import { LoadingPlaceholder } from "./LoadingPlaceholder";
 import { SignersForm } from "./SignersForm";
@@ -34,7 +33,7 @@ const Settings = ({
   refreshTransactions?: () => void;
   wallet?: Wallet | null;
 }) => {
-  const [canister] = useCanister("blend_safe_backend");
+  const { safe } = useSafe();
 
   const [activeSettingsTab, setActiveSettingsTab] = useState(
     SettingsTabs.at(0)?.id
@@ -46,7 +45,6 @@ const Settings = ({
         await Promise.all(
           signerAddresses.map(async (signerAddress) => {
             const principalFromText = Principal.fromText(signerAddress);
-            const safe = new BlendSafe(canister as any, address);
             await safe.addSigner(principalFromText);
           })
         );
@@ -64,7 +62,6 @@ const Settings = ({
         await Promise.all(
           signerAddresses.map(async (signerAddress) => {
             const principalFromText = Principal.fromText(signerAddress);
-            const safe = new BlendSafe(canister as any, address);
             await safe.removeSigner(principalFromText);
           })
         );
@@ -79,7 +76,6 @@ const Settings = ({
   const setThreshold = usePromise({
     promiseFunction: async (threshold: number) => {
       try {
-        const safe = new BlendSafe(canister as any, address);
         await safe.setThreshold(Number(threshold));
         refreshTransactions && refreshTransactions();
         toast.success("Set threshold message created");
