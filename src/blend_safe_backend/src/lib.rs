@@ -252,12 +252,19 @@ async fn sign(wallet_id: String, msg: String) -> Result<String, String> {
         });
     }
 
-    if !is_special_message {
-        let signature = sign_message(wallet_id, msg, key_id).await?;
-        Ok(hex::encode(signature))
-    } else {
-        Ok("".to_string())
-    }
+    let signature = match is_special_message {
+        true => "".to_string(),
+        false => hex::encode(
+            sign_message(wallet_id.clone(), msg.clone(), key_id).await?
+        )
+    };
+
+    let _ = WALLETS.with(|wallets| {
+        wallets.borrow_mut().get_mut(&wallet_id).ok_or(WALLET_NOT_FOUND_ERROR.to_string())?
+            .remove_message_and_metadata(msg.clone(), caller())
+    });
+
+    Ok(signature)
 }
 
 /// Retrieves the Ethereum address associated with the wallet.
@@ -465,7 +472,7 @@ fn get_metadata(wallet_id: String, msg: String) -> Result<String, String> {
     WALLETS.with(|wallets| {
         wallets.borrow().get(&wallet_id)
             .ok_or(WALLET_NOT_FOUND_ERROR.to_string())?
-            .get_metadata(msg)
+            .get_metadata(msg, caller())
             .cloned()
             .ok_or(METADATA_NOT_FOUND.to_string())
     })

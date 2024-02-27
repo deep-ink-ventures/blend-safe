@@ -105,9 +105,19 @@ pub trait MultiSignatureWallet {
     /// Get the metadata associated with a message in the wallet.
     ///
     /// * `message` - The message as a `Vec<u8>`.
+    /// * `caller` - The `Principal` of the caller.
     ///
     /// Returns `Option<&String>` containing the metadata if it exists.
-    fn get_metadata(&self, message: Vec<u8>) -> Option<&String>;
+    fn get_metadata(&self, message: Vec<u8>, caller: Principal) -> Option<&String>;
+
+
+    /// Remove a message and its metadata from the wallet.
+    ///
+    /// * `msg` - The message as a `Vec<u8>`.
+    /// * `caller` - The `Principal` of the caller.
+    ///
+    /// Returns `Result<(), String>` indicating success or the type of failure.
+    fn remove_message_and_metadata(&mut self, msg: Vec<u8>, caller: Principal) -> Result<(), String>;
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
@@ -239,8 +249,24 @@ impl MultiSignatureWallet for Wallet {
         Ok(())
     }
 
-    fn get_metadata(&self, message: Vec<u8>) -> Option<&String> {
+    fn get_metadata(&self, message: Vec<u8>, caller: Principal) -> Option<&String> {
+        if !self.signers.contains(&caller) {
+            return None;
+        }
         self.metadata.get(&message)
+    }
+
+    fn remove_message_and_metadata(&mut self, msg: Vec<u8>, caller: Principal) -> Result<(), String> {
+        // Check if the caller is a signer
+        if !self.signers.contains(&caller) {
+            return Err("CallerNotSigner".to_string());
+        }
+
+        // Remove the message and its metadata
+        self.message_queue.remove(&msg);
+        self.metadata.remove(&msg);
+
+        Ok(())
     }
 }
 
@@ -480,7 +506,7 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(
-            wallet.get_metadata(msg.clone()),
+            wallet.get_metadata(msg.clone(), signer),
             Some(&"metadata".to_string())
         );
     }
@@ -524,7 +550,7 @@ mod tests {
         let _ = wallet.propose_message(signer.clone(), msg.clone());
         let _ = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
 
-        let result = wallet.get_metadata(msg.clone());
+        let result = wallet.get_metadata(msg.clone(), signer);
 
         assert_eq!(result, Some(&"metadata".to_string()));
     }
@@ -538,7 +564,23 @@ mod tests {
         let msg = vec![1, 2, 3];
         let _ = wallet.propose_message(signer.clone(), msg.clone());
 
-        let result = wallet.get_metadata(msg.clone());
+        let result = wallet.get_metadata(msg.clone(), signer);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_get_metadata_returns_none_if_not_signer() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        let invalid_signer = Principal::from_str("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+        let _ = wallet.propose_message(signer.clone(), msg.clone());
+        let _ = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
+
+        let result = wallet.get_metadata(msg.clone(), invalid_signer.clone());
 
         assert_eq!(result, None);
     }
@@ -555,7 +597,7 @@ mod tests {
         let result = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
         assert!(result.is_ok());
         assert_eq!(
-            wallet.get_metadata(msg.clone()),
+            wallet.get_metadata(msg.clone(), signer),
             Some(&"metadata".to_string())
         );
 
@@ -565,5 +607,27 @@ mod tests {
             result.err(),
             Some("Metadata already exists for this message".to_string())
         );
+    }
+
+    #[test]
+    fn test_remove_message_and_metadata() {
+        let mut wallet = Wallet::default();
+        let signer = Principal::from_str("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap();
+        wallet.add_signer(signer.clone());
+
+        let msg = vec![1, 2, 3];
+        let _ = wallet.propose_message(signer.clone(), msg.clone());
+        let _ = wallet.add_metadata(msg.clone(), "metadata".to_string(), signer.clone());
+
+        assert_eq!(
+            wallet.get_metadata(msg.clone(), signer.clone()),
+            Some(&"metadata".to_string())
+        );
+
+        let result = wallet.remove_message_and_metadata(msg.clone(), signer.clone());
+
+        assert!(result.is_ok());
+        assert_eq!(wallet.get_metadata(msg.clone(), signer), None);
+        assert!(!wallet.message_queue.contains_key(&msg));
     }
 }

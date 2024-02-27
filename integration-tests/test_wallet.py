@@ -63,6 +63,14 @@ def test_signing_lifecycle():
     valid = safe.verify_signature(wallet_id, challenge_enc, signature_enc)
     assert valid[0]['Ok']
 
+    # check if the message and its metadata have been removed
+    result = safe.get_metadata(wallet_id, challenge_enc)
+    assert_err(result, "MetadataNotFound")
+
+    result = safe.get_messages_with_signers(wallet_id)
+    assert_ok(result)
+    assert len(result[0]['Ok']) == 0
+
 
 def test_add_remove_signer():
     wallet_id = get_wallet_id()
