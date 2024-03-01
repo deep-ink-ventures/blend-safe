@@ -21,7 +21,7 @@ interface CreateTransactionFormValues {
 
 const MAX_XDR_CHAR_COUNT = 4096;
 
-const isDebug = true;
+const isDebug = false;
 
 const ImportTransactionModal = (props: IImportTransactionProps) => {
   const { isVisible, onClose } = props;

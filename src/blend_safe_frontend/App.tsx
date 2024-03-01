@@ -17,6 +17,8 @@ const safeName = "CHPTEST1";
 const chainId = 5; // goerli
 const receiver = "0x5Ac014CB02e290562e608A94C1f5033Ea54e9243";
 
+const isDebug = false;
+
 async function flow(safe:any, transaction: any) {
   const txHash = safe.getEthTransactionHashFromTransactionObject(transaction, chainId);
 
@@ -76,7 +78,7 @@ function App() {
       {(isConnecting || isInitializing) && <LoadingPlaceholder />}
       {!isConnecting && !isInitializing && (
         <>
-          {isConnected ? (
+          {isConnected && isDebug ? (
             <a onClick={() => sendNativeToSomeone(canister)}>sample()</a>
           ) : null}
           <div className="container mx-auto mt-5 min-w-[600px] max-w-[820px] overflow-hidden p-3">

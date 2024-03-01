@@ -424,7 +424,7 @@ const TransactionAccordion = ({
             {!!decodedTransactionMetadata?.transaction?.to && (
               <div>
                 <p className="font-semibold">Amount</p>
-                {decodedTransactionMetadata.transaction.value}
+                {Number(decodedTransactionMetadata.transaction.value) > 0 ? decodedTransactionMetadata.transaction.value : 0}
               </div>
             )}
             {txnStatus === "EXECUTED" && (
