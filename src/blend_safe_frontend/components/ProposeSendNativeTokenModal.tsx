@@ -11,6 +11,7 @@ import { usePromise } from "../hooks/usePromise";
 import { isValidAddress } from "../utils";
 import { RequiredProperty } from "../utils/transformer";
 import ConnectWallet from "./ConnectWallet";
+import { NumericFormat } from 'react-number-format';
 
 interface ProposeSendNativeTokenProps {
   isVisible?: boolean;
@@ -135,8 +136,11 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                             {...register("receiver", {
                               required: "Required",
                               validate: (value) => {
-                                return Boolean(value && isValidAddress(value)) || 'Invalid ETH address'
-                              }
+                                return (
+                                  Boolean(value && isValidAddress(value)) ||
+                                  "Invalid ETH address"
+                                );
+                              },
                             })}
                           />
                         </div>
@@ -163,14 +167,17 @@ const ProposeSendNativeTokenModal = (props: ProposeSendNativeTokenProps) => {
                           </p>
                         </div>
                         <div className="relative">
-                          <input
+                          <NumericFormat
                             className={cn("w-full p-2")}
                             placeholder=""
-                            type="number"
+                            thousandSeparator=","
                             disabled={proposeSendNativeToken.pending}
                             {...register("amount", {
                               required: "Required",
                             })}
+                            onChange={(e) =>
+                              setValue("amount", Number(e.target.value))
+                            }
                           />
                         </div>
                       </div>

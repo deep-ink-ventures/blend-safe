@@ -246,7 +246,11 @@ const TransactionAccordion = ({
         }
         getMessagesWithSigners.call();
         toast.success("Successfully signed a message");
-        setSignTxHash(response);
+        if (typeof response === 'string') {
+          setSignTxHash(response);
+        } else {
+          setSignTxHash(response?.transactionHash);
+        }
         return response;
       } catch (ex) {
         toast.error(ex.toString());
